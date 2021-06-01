@@ -1,5 +1,7 @@
 
 
+
+
 这个repo主要记录自己看到的一些知识点，防止以后忘记，都是一些概述性质的东西，建议想要系统学习知识的话，还是看相关的论文或者官方文档
 
 **MeshShader**：
@@ -92,6 +94,7 @@ SDF表示的是距离这个点最近的物体边缘的距离，
 1. 可以用来做两个物体的blending
 2. 可以做ray matching（步进的时候知道所在点的距离场值，就说明在这个值内没有物体，可以放心往前走）
 3. 可以计算某个方向的遮挡角度，如下图所示,从而衍生出了基于SDF的软阴影。基于SDF的软阴影采用了系数k对arcsin的近似，k值越大，阴影越硬（θ角小，sin值小）
+参考文献：https://sites.cs.ucsb.edu/~lingqi/teaching/games202.html
 ```
 
 ![7](./images/7.PNG)
@@ -104,12 +107,98 @@ SDF表示的是距离这个点最近的物体边缘的距离，
 环境光照实际上存了两个信息，一个是光照信息，另一个是BRDF信息，在渲染方程里面是光照信息和BRDF乘起来和visibility一起积分的。环境光照做了一个近似，把光照信息和BRDF拆开分别积分，并且存成两张图来计算光照。那么问题就简化成如何生成这两张图：
 1. 光照信息只要一个入射光颜色，一个入射角就可以存成一个buffer。这个buffer可以是一个球因为做了近似，所以glossy BRDF的lobe是有一定方向的，我们就需要对这个buffer做prefilter，这样本质上就是在一个点上采样一个范围的颜色。如下图所示
 2. BRDF有五维信息需要积分（菲涅尔项（反射率RGB，入射角度）、roughness），需要做的就是把里面的项拆出来，然后存成一个table。这里面应用了schlick的近似把反射率RGB三个通道拆成了一个R0和一个入射角度，这样把R0这个常数拆出来，整个BRDF就变成了入射角度和roughness的函数，把入射角度和roughness的积分预计算存成一个二维的texture，就把整个BRDF解决掉了。
+参考文献：https://sites.cs.ucsb.edu/~lingqi/teaching/games202.html
 ```
-
-
-
-
 
 ![10](./images/10.PNG)
 
 ![9](./images/9.PNG)
+
+**SH、球谐光照、球谐函数**
+
+```
+球谐函数可以理解为一个高维的傅里叶变换。他有一组基函数，然后把我们计算出来的光照BRDF展开（投影）到基函数上，存储起来。SH有一些有意思的特征，包括旋转不变性。光照是可以旋转的
+```
+
+**PRT**
+
+```
+PRT在diffuse下：
+diffuse BRDF项是比较低频的，而SH本身可以表示从低频到高频的信息，因此可以把BRDF投影到3阶SH上面（后面几阶描述的是高频信息，对于diffuse BRDF没有影响），而既然材质都是diffuse了，光照信息也可以不要高频信息。可以直接用SH来表示光照。
+对于下图的渲染方程来说，环境光照的做法其实是把lighting项、visibility项和BRDF项都看成一个球面函数，然后对于每一个shading point把这三项乘起来，然后对四面八方的光线的贡献加权平均。这样做很耗时.PRT的做法是，把BRDF项（常数）拆出来，把光照用球谐基函数表示出来，带入到渲染方程当中，把基函数、visibility项和角度一起积分，就相当于是把后者又投影到基函数上，这样对于每一个shading point就可以存两个球谐函数系数的图，渲染的时候把这两个texture的值乘起来就好了。如下图所示
+
+PRT假设光照是可以变化的，但是物体都是不能变化的。
+参考文献：https://sites.cs.ucsb.edu/~lingqi/teaching/games202.html
+```
+
+![12](./images/12.PNG)
+
+![13](./images/13.PNG)
+
+```
+PRT在glossy下：
+glossy下和diffuse下唯一不同的一点是BRDF不再是一个常数了，而是一个关于方向的函数，如下图所示，那么其实把之前Precompute的东西弄成一个矩阵就行了（原来是关于系数的一个向量）,那么原来的两个texture，可能一个texture存9个系数就行（3阶SH），变成了一个要存25个系数（5阶SH，glossy有高频信息，需要阶数更高），另一个要存625个系数（25*25，是一个矩阵），在实际渲染的时候，每一个shading point只需要把矩阵和向量乘一下就行了，如下图所示
+因此PRT不是很适合做glossy材质，可以用小波变换来代替SH来表示glossy，但是小波变换不支持快速旋转
+```
+
+![14](./images/14.PNG)
+
+![11](./images/11.PNG)
+
+**RSM（reflection shadow map）**
+
+```
+把每一个shadow map上的像素都当成次级光源，并且把所有的反射物（次级光源当成diffuse的），然后用这些次级光源照亮shading point.当然shadowmap上需要存一些每个点的世界坐标，用来判断和shading point的距离。
+这样其实就很简单了，查找所有shadowmap上距离shading point比较近的点，然后乘一个常数（diffuse）再做积分。把Visibility忽略掉，就得到了下图中白色的式子。每一个shading point直接就可以算出来颜色。
+RSM和VPL的思想很相近。
+缺点：漏光、没有可见性检测，认为每一个次级光源都是diffuse的，
+优点：实现简单
+参考文献：https://sites.cs.ucsb.edu/~lingqi/teaching/games202.html
+```
+
+![15](./images/15.PNG)
+
+**LPV、light propagation volumes**
+
+```
+1. 整体思路是把整个场景划分成多个格子，然后找到所有直接光照找到的表面，作为次级光源（可以用RSM实现）
+2. 查找每一个格子都包含哪些次级光源，计算每一个格子向各个方向的radiance和，并且用SH表示
+3. 根据第二步每一个格子的SH，向各个相邻格子传播，或者说对于每一个格子，查找他相邻格子传播过来的光照。同时用SH表示，一般迭代四五次就稳定了
+4. 对于每一个shading point，查找他在哪个格子里面，用格子里面的radiance渲染这个shading point的间接光照
+5. 格子可以使用层次结构加速
+
+缺点：不考虑每个格子里面的遮挡，传播时候格子之间的遮挡等,如下图所示
+参考文献：https://sites.cs.ucsb.edu/~lingqi/teaching/games202.html
+```
+
+![16](./images/16.PNG)
+
+**VXGI、SVOGI、voxel global illumination**
+
+```
+把场景分割成体素，组成层次结构，次级光源是体素而不是像素。
+1. 决定了哪些voxel里面有次级光源，每一个voxel里面记录一个输入光照的分布，一个法线分布，每个hierarchy层都要更新
+2. 在渲染的时候，我们从camera发射多条光线，对于任意一个pixel，我们知道camera ray的方向，还知道这个pixel的材质和法线，那么就能得到出射光线的cone，我们根据hierarchy的体素信息，把圆锥往前步进，收集所有次级光源对这个方向上的影响。最后渲染到shading point上。
+缺点：开销太大，动态物体每帧都要体素花，开销太大
+优点：质量好
+参考文献：https://sites.cs.ucsb.edu/~lingqi/teaching/games202.html
+```
+
+![17](./images/17.PNG)
+
+![18](./images/18.PNG)
+
+**SSDO/screenspace directional occlusion**
+
+```
+SSDO和SSAO的思路完全相反,SSAO认为光源是从很远的地方来，周围的地方会挡道光。SSDO则是考虑了来自近处的光照，远处的光照只考虑直接光照。其他的做法完全一样。
+SSDO有一个假设，就是采样点能不能被shading point看到，取决于采样点能不能被摄像机看到。如果被挡住了，并没有简单的扔掉，而是计算这些被挡住的点对shading point的贡献
+缺点：只在屏幕空间做，不看visibility
+```
+
+![19](./images/19.PNG)
+
+**体积雾渲染**
+
+
+
