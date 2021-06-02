@@ -33,6 +33,8 @@ https://zhuanlan.zhihu.com/p/376267968
 
 ![2](./images/2.PNG)
 
+![21](./images/21.PNG)
+
 **Bindless**
 
 ```
@@ -197,6 +199,52 @@ SSDO有一个假设，就是采样点能不能被shading point看到，取决于
 ```
 
 ![19](./images/19.PNG)
+
+**SSR、Screen Space Reflection、 Screen Space RayTracing**
+
+```
+SSR的思路很简单，就是利用GBuffer里面的normalbuffer和depthbuffer，从屏幕空间发出光线，射向各个glossy的表面，并且在知道法线分布和摄像机入射方向时，知道出射方向，利用depth的mipmap使用指数增强算法（1,2,4,8）向前trace（因为这个时候没有SDF）直到trace到屏幕上另一个点，用另一个点的渲染作为颜色。因为采样开销很大，所以会使用时间和空间上复用采样。如下图所示
+```
+
+![20](./images/20.PNG)
+
+**GGX**
+
+```
+其实就是一个法线分布函数，如下图所示。他的特点在于他在边缘衰减比较慢，会有一个光晕的效果。在diffuse下会更亮一点
+```
+
+![22](./images/22.PNG)
+
+**GTR**
+
+```
+GTR是一种更通用化的GGT，有一个参数可以调整，在很高的时候接近backmann分布，在比较低时为GGX发现分布模型,如下图所示
+```
+
+![23](./images/23.PNG)
+
+**kulla-Conty近似**
+
+```
+在微表面模型中，微表面之间会相互遮挡，因此visibility项的存在会产生光线在微表面之间相互bounce，如果我们只bounce，就会导致能量损失，最后渲染出来的图会比较暗，kulla-conty就是对多次bounce的结果做近似
+他的思想也很简单，先计算一次bounce的结果,把一次bounce的能量嘉和记为E(u0)，然后用1-E(u0)就表示损失的能量，使用一个系数来补充这些能量。这个系数的计算比较麻烦，需要存成一张texture，这些texture保存的就是这些系数（一个是u0，一个是roughness）。
+对于有颜色的BRDF，会认为颜色本身就是对能量的吸收，最后会乘上一个颜色系数。
+```
+
+**LTC、Linearly Transformed Cosines**
+
+```
+线性变换的余弦，是为了解决在多边形光源下，如何做GGX法线分布的渲染。他的思想很简单，就是预计算出了一个transform，把所有点的BRDF转换成二维cos lobe，然后面光源会跟着这个变换做变换。这样就把所有shading point的BRDF都变化成一致的（原本不同的shading point的BRDF是各不相同的，这样给定任意一个面光源，不同的shading point都要做不同的积分，很麻烦），而现在BRDF就变成了一个固定的cos值，而面光源不变，这样就可以对面光源做积分。可以实现对于任意的BRDF，任意的面光源，得到最终的渲染值。具体的方法和解析解如下图
+```
+
+![24](./images/24.PNG)
+
+![25](./images/25.PNG)
+
+**Lumen简析**
+
+
 
 **体积雾渲染**
 
