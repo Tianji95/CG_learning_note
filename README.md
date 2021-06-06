@@ -219,7 +219,7 @@ SSR的思路很简单，就是利用GBuffer里面的normalbuffer和depthbuffer�
 **GTR**
 
 ```
-GTR是一种更通用化的GGT，有一个参数可以调整，在很高的时候接近backmann分布，在比较低时为GGX发现分布模型,如下图所示
+GTR是一种更通用化的GGT，有一个参数可以调整，在很高的时候接近backmann分布，在比较低时为GGX法线分布模型,如下图所示
 ```
 
 ![23](./images/23.PNG)
@@ -306,6 +306,39 @@ ClipMap的核心思想非常简单，就是把大于一定大小的Mipmap给裁�
 
 ![31](./images/31.jpg)
 
+**双边滤波，Bilateral filtering**
+
+```
+双边滤波是为了解决高斯滤波丢失高频信息（边界变糊）的问题，具体的思路就是比较相邻的像素i和j之间颜色的差距，如果两个像素差距很大，则不做滤波。公式如下：其中i,j是第一个像素点的xy位置，kl是另一个像素点的位置。I表示两个像素之间的亮度值
+```
+
+![33](./images/33.PNG)
+
+**联合双边滤波**
+
+```
+实际上就是加入距离，像素颜色差距以外的滤波限制条件，联合双边滤波非常适合光线追踪的降噪，（包括GBuffer里面的normal，depth，position，objectID等。
+```
+
+**Outlier Removal**
+
+```
+删除超级亮的点，在采样的时候，会有多跟光线都采样到同一个像素，这样就会让某些像素的点颜色值超过255。在渲染的时候应该查找这些亮点周围的像素点，用联合双边滤波clamp到一个有效的范围内，TAA就是这么做的。
+```
+
+**SVGF**
+
+```
+Spatiotemporal Variance-Guided Filtering，其实就是结合时间和空间上的信息一起做Filter，然后利用Variance去影响空间上的Filter。实现降噪
+```
+
+**RAE**
+
+```
+Recurrent AutoEncoder
+```
+
 **Lumen简析**
 
 ![32](./images/32.PNG)
+
