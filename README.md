@@ -298,7 +298,14 @@ SMAA是MLAA的改进版，他有以下改进：
 
 ![30](./images/30.jpg)
 
+**ClipMap**
 
+```
+ClipMap的核心思想非常简单，就是把大于一定大小的Mipmap给裁掉，只保留视野范围内的部分。当视野发生变化的时候，就改变加载的clipmap，这样的办法可以动态加载texture，是VT的基础。
+```
+
+![31](./images/31.jpg)
 
 **Lumen简析**
 
+![32](./images/32.PNG)
