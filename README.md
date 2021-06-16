@@ -330,13 +330,34 @@ ClipMap的核心思想非常简单，就是把大于一定大小的Mipmap给裁�
 
 ```
 Spatiotemporal Variance-Guided Filtering，其实就是结合时间和空间上的信息一起做Filter，然后利用Variance去影响空间上的Filter。实现降噪
+SVGF用了几个双边滤波的参数：
+1. 深度：
+考虑两个点沿着法线方向的深度差异
+2. 法线
+这里面的法线指的是两个
+3. 颜色：
+基于时空variance的颜色差异.这里算颜色差异是先计算着色点周围7x7像素值的方差，
+然后在时域上根据motion vector 找到对应的像素点，然后得到一个比较平滑的variance
+最后再在3x3的范围内再做一个variance，让variance更加平滑。
+
+SVGF也有他自己的问题，包括过渡平滑丢失了一些高频信息，也会过滤不掉一些低频噪声。所以后来又有ASVGF等算法来做改进。
 ```
+
+![34](./images/34.PNG)
+
+![35](./images/35.PNG)
+
+![36](./images/36.PNG)
 
 **RAE**
 
 ```
-Recurrent AutoEncoder
+Recurrent AutoEncoder，这里是用神经网络来做降噪，输入是一个有噪声的图和一个Gbuffer，输出是一个视频的ground truth，网络结构如下所示：
+整体上RAE的效果较SVGF慢，也有残影，也存在严重的overblur，效果不如SVGF
+RAE的好处在于，在任何SPP下的效果都是一样的，而SVGF会随着spp的增加而计算量增加。而且今后有tensorcore后前景会越来越明朗。
 ```
+
+![37](./images/37.PNG)
 
 **Lumen简析**
 
@@ -369,4 +390,10 @@ Recurrent AutoEncoder
 白沫：
 创建一个白沫纹理，高于某一高度的顶点，用这个纹理做渲染。
 ```
+
+**DLSS**
+
+DLSS有DLSS1.0,和DLSS2.0两个方案，他最主要的思想是利用时域信息，找到上一帧和这一帧采样值之间的采样频率，并且在频域上复现
+
+**cluster -deferred shading 对light的culling**
 
