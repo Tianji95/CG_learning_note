@@ -395,5 +395,13 @@ RAE的好处在于，在任何SPP下的效果都是一样的，而SVGF会随着s
 
 DLSS有DLSS1.0,和DLSS2.0两个方案，他最主要的思想是利用时域信息，找到上一帧和这一帧采样值之间的采样频率，并且在频域上复现
 
+**Bent Normal**
+
+BentNormal 叫做环境法线、经常用于AO。他本质是对原始的normal修改后的新向量。这个新向量指向了当前像素一个不被其他物体遮挡的平均方向，也就是光线传入的主要方向，所以他可以用来修正AO，如下图所示，Normal和Bent normal的区别。一般bent normal是采用传统的离线采样方法，或者使用screen space的方法（类似SSAO）
+
+![32](./images/38.png)
+
+
+
 **cluster -deferred shading 对light的culling**
 
