@@ -341,6 +341,8 @@ SVGF用了几个双边滤波的参数：
 最后再在3x3的范围内再做一个variance，让variance更加平滑。
 
 SVGF也有他自己的问题，包括过渡平滑丢失了一些高频信息，也会过滤不掉一些低频噪声。所以后来又有ASVGF等算法来做改进。
+参考链接：https://zhuanlan.zhihu.com/p/28288053
+
 ```
 
 ![34](./images/34.PNG)
@@ -393,15 +395,48 @@ RAE的好处在于，在任何SPP下的效果都是一样的，而SVGF会随着s
 
 **DLSS**
 
-DLSS有DLSS1.0,和DLSS2.0两个方案，他最主要的思想是利用时域信息，找到上一帧和这一帧采样值之间的采样频率，并且在频域上复现
+```
+DLSS的思想是把每一个渲染像素当成一个采样点，渲染的真实世界是一个连续函数，越高的渲染分辨率代表采样点数量的增加。DLSS意在通过更高效的样本利用率来提高渲染的“效率”（或者说增加采样的个数）。
+
+DLSS不是单帧超分辨率，DLSS认为单帧超分辨率是一个非常困难的问题，而且训练出来的网络实际上是完全基于训练集图片中的数据分布，并不是我们对实际正在渲染的场景的采样，所以经常和实际分辨率风格不一致。
+
+DLSS是一种时域超采样训练算法。时域超采样是利用motion vector来取过去几帧的信息，但是他会出现延迟、鬼影（ghosting）的问题，整体而言，效果还算不错。解决这种问题有很多方法，例如把过去帧采样的样本的值的范围，限制在当前帧像素周围3x3大小的Local neighborhood的所有样本的值的范围内.图简单在一维的例子上解释一下这个过程：中间的示意图中，每一个红色的点都被Clamp到周围绿色点的范围内了。如果用“纠正”过的样本来重建最终图像，如右图所示，重建的结果中便没有太过于明显的错误了。但是，用这个方法也经常会“过度纠正”，例如右图中高亮的两个样本，他们原本的确是正确的样本，但是因为这个算法，反而被过度纠正，反而变的不那么精确了。
+```
+
+![DLSS_neighborhood_clamping](./images/DLSS_neighborhood_clamping.PNG)
+
+```
+时域超采样还有一个问题，就是当频率和重建函数频率相近时，会出现摩尔纹的现象，如下所示：
+```
+
+![DLSS_neighborhood_clamping2](./images/DLSS_neighborhood_clamping2.PNG)
+
+```
+DLSS2.0其实就是在训练这个启发式的采样参数，什么时候做clamping，如何做clampling，以及clamping的大小都是网络学出来的
+参考链接：https://zhuanlan.zhihu.com/p/123642175
+```
+
+![DLSS](./images/DLSS.PNG)
 
 **Bent Normal**
 
+```
 BentNormal 叫做环境法线、经常用于AO。他本质是对原始的normal修改后的新向量。这个新向量指向了当前像素一个不被其他物体遮挡的平均方向，也就是光线传入的主要方向，所以他可以用来修正AO，如下图所示，Normal和Bent normal的区别。一般bent normal是采用传统的离线采样方法，或者使用screen space的方法（类似SSAO）
+```
 
 ![32](./images/38.png)
 
+**FSR**
 
+```
+FSR是AMD推出的超分技术，他有两个pass，一个是EASU，用来做1-4X的上采样，这里面用到了梯度估算了方向和强度，做到各向异性，另一个是RCAS，RCAS就是从CAS演化过来的，可以理解为CAS = 原图+（原图-高斯滤波的图）这样的反向滤波做到了锐化。RCAS则是使用3x3的十字Filter，添加了一个（1-min）*（1-max）计算强度。
+FSR = EASU + RCAS（两个pass）
+另外贴一个工程实现上的建议
+
+参考链接：https://www.zhihu.com/question/462609402
+```
+
+![FSR](./images/FSR.PNG)
 
 **cluster -deferred shading 对light的culling**
 
