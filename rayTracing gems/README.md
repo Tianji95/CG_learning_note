@@ -58,3 +58,13 @@ struct RayDesc {
 **BLAS（底层加速结构）和TLAS（顶层加速结构）**
 
 底层加速结构包括几何土元和程序化生成的图元。而TLAS包含一个或者多个BLAS，BLAS构建慢，但是求交快，TLAS构建快但是过度使用会影响性能。在动态场景中，如果只是节点包围盒发生了变化，refit就可以。但如果一直refit而不rebuild又会降低求交效率。所以要平衡refit和rebuild(rebuild慢)
+
+DX12只需要输入VB和IB就可以调用接口直接构建加速结构，包括BLAS和TLAS
+
+**着色器表**
+
+着色器表是GPU内存中按照64位对齐的连续块，用来存储光追着色器数据和场景资源绑定。下面是其中一种布局方式。
+
+![3](./images/3.PNG)
+
+在实际使用的过程当中，我们需要使用map来对shader table里面的内容赋值，包括不同着色器的identifier等，需要自己设置不同shader的offset。
