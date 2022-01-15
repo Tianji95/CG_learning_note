@@ -6,7 +6,9 @@
 
 另外文件夹中相对完备的笔记有两个，一个是[RTR4的笔记](./RTR4/README.md)：
 
-另一个是[raytracing gems的笔记](./rayTracing gems/README.md)
+
+
+另一个是[raytracing_gems的笔记](./rayTracing_gems/README.md)
 
 **MeshShader**：  
 
