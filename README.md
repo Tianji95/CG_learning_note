@@ -10,6 +10,8 @@
 
 另一个是[raytracing_gems的笔记](./rayTracing_gems/README.md)
 
+现在再加一个[设计模式笔记](./Design&#32;Patterns/README.md)
+
 **MeshShader**：  
 
 ```
