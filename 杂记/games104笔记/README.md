@@ -352,4 +352,309 @@ Ribbon 粒子：粒子形成的是一条光带，例如光剑（魔法剑）挥�
 
 粒子渲染最大的问题：半透明问题。例如半透明物体的排序。例如按照粒子发射器做sort
 
+渲染粒子的优化方法：将粒子渲染做降分辨率
+
+GPU粒子：GPU很适合做粒子，因为粒子的数量庞大，同时计算简单。
+[!GPU particles](./images/GPU_particles.png)
+粒子有专门的一个数据机构，有一个alive Particles List还有一个dead list，每当一个粒子死亡，需要从alive list移到deadlist里面，而emiter每发射一个粒子，需要从deadlist把相应的粒子拿出来放到alive list里面，GPU每帧只需要对alive list里面的粒子做模拟即可。
+
+粒子的计算跟视角无关，即使看不到的粒子也需要每帧计算，只是不需要绘制了而已。
+GPU粒子可以把物理模拟，排序，视锥裁剪、depth buffer collision等都放到GPU上做。GPU上的粒子排序是使用的mergesort，这个是可以并发执行的。
+
+大量的人也可以用粒子系统实现。使用Animated Particle Mesh，只不过在人物的粒子系统中，没有用物理模拟，而是用的动画状态机实现。还有鸟群，鱼群的实现。这里面使用SDF来辅助控制碰撞。
+
+音效系统：
+声音分为音调、音量和音色，音色本质是不同基波和不同幅度的音波叠加起来的效果，因此理论上人耳听不到的高频音也会对音色产生影响。
+理论上声音的采样率只要大于两倍音频即可保证无损，但因为音色的影响，采样频率需要稍高一些，保证高频音也能采样到。
+
+MP3只支持立体音，不支持5.1立体环绕音，而且Mp3有专利墙，所以大部分时候使用OGG格式。
+
+声音的渲染系统：
+listener的位置，速度还有朝向
+声音的空间感：主要是利用两个耳朵接受到的声音大小，声音到达的时间差距，音色等
+声音的power是音强的平方，
+
+声音的衰弱：这个时候使用attenuation shape来模拟声音的衰弱，例如高音喇叭使用的是喇叭形的衰弱。小溪使用的是胶囊的衰弱场。
+
+引擎还需要处理声波，在有障碍物时的声音
+
+声音的混响：例如骑马通过一个桥洞。混响包含干音（就是直接的声音）、声音的回音，声音的拖尾。
+多普勒效应：当声源在移动的时候，声音的效果是不一样的。
+声音的采集：一般是在录音室中对整个空间的声场做采集
+在3A大作里面，会设置很多个音源。来模拟环境音。
+
+### 十三、引擎工具链基础
+
+所见即所得的工具链
+[!game engine runtime framework](./images/game_engine_runtime_framework.png)
+
+引擎工具链的本质是要连接各个特色的人，把大家连接到一起协作，例如美术，策划，程序员连接到一起。
+
+游戏引擎最开始的系统叫做GUI系统，GUI系统由immediate Mode，所见即所得的绘制。还有一种叫Retained Mode，将所有要绘制的东西放到类似commandbuffer里面，如果绘制内容不变的话则不改变commandbuffer。现在大部分都是Retained Mode GUI
+
+Retained Mode GUI有很多设计方式，例如MVC，MVVM等，
+其中MVC架构的思想是只能通过model来改变view，而view不能改变model，用户的操作只能通过controller来改变model。这种方式只有“单行线”，容易管理。
+[!MVC](./images/MVC.png)
+
+还有一个设计模式是MVP：就是把Controller编程persenter，作为中间者。
+[!MVP](./images/MVP.png)
+
+MVVM模型，把persenter换成viewmodel
+只不过他中间用的是binding机制，view就只有XML，是艺术家来写的，viewmodel是把xml和model绑定到一起的作用,是一种数据转换。model拥有自己的数据。
+[!MVVM](./images/mvvm.png)
+
+在写工具的时候，最好不用自己写的GUI，而是使用现成的工具例如QT等。
+
+数据的序列化：就是把当前的数据变成可以保存成文件的格式。或者可以变成可以网络传输的数据格式。例如存成txt或者json，都是序列化操作。
+如果能存储成binary mode的话，文件的大小会小很多。
+
+工具链还会遇到一个问题，就是数据会有很多重复，例如有十个一模一样的房子，但是会有一些微小的差别。这个时候，如果存十个binary就会有很多浪费。常用的技术是数据的继承，例如添加一个<ref>xxx.mat</ref>告诉引擎我们要从xxx.mat把所有的数据拷贝过来，然后再去新增别的数据即可。
+
+如何做到资产版本的兼容性：例如新版本引擎可以导入老版本引擎的资产，或者老版本引擎可以导入新版本引擎的资产。
+怎么处理：少的值新增一个默认值，多的值不处理。
+或者给每一个资产定义一个单调递增的guid
+
+工具链的鲁棒性：
+1. 怎么做undo和redo
+2. 工具crash了怎么办
+使用命令设计模式，command需要原子化，然后把所有的command都保存到磁盘上。
+每一个command都需要有revoke和invoke，还需要有一个uid
+建议提前在工具链中集成command系统，这样可以使我们工具链非常干净。
+command系统最主要的三个操作是add、delete和update。
+
+如何处理工具链中各个资源格式不同的问题：
+使用schema：将所有复杂的数据都拆分成一些“原子数据”，schema更像是一个分子式，是一个描述物体的格式，schema通常是一个xml，而且要有继承关系，例如军人的schema可以继承自人的schema。同时还需要能够相互reference数据。能够把数据关联在一起。
+
+[!schema define](./images/schema_define.png)
+
+工具还有一个能力就是要给不同的人给不同的View，例如不能给美术弧度，而是要给角度，要给调色板而不是RGB数值。
+
+工具链还需要“所见即所得”具体的做法是直接复用引擎代码，例如下面的引擎架构
+[!game tools framework](./images/game_tools_framework.png)
+
+工具链还需要有“play in Editor”功能，就是直接在编辑器里面运行游戏。
+
+工具链还需要有可扩展性，例如插件功能，可以让第三方开发者使用插件功能编写自己的插件。
+
+工具链开发需要有很强的软件工程能力，以及非常熟悉游戏制作过程。
+
+### 十四、引擎工具链高级概念和应用
+
+World Editor
+引擎需要支持多个viewport，因为可能会出现画中画。
+同时世界编辑器还需要针对不同的美术去做选择性的编辑，例如把锁定某些东西不可编辑。让美术专注于自己的领域。
+世界编辑器还需要Content Browser，需要可以浏览所有的资产，也可以检索资产。
+
+鼠标选取功能：使用Ray Casting来实现物体选取。
+
+Height Brush功能：能够通过笔刷来生成地形的高度。最好能够给美术提供一个能够自己导入笔刷的功能
+
+instance Brush：能够通过刷子来快速的生成物体instance。
+
+能够有环境系统，例如路上不能长树。这需要一套Rule System，然后使用这么一个Rule System使用PCG的方法生成出来。
+
+World Editor还需要有插件系统，而且需要支持多个插件共存。还有plugin的版本系统。
+
+游戏引擎的叙事系统：包含每个物体的时间线，然后多个物体的时间线放在一起会有动画或者叙事系统。
+
+反射系统：就是能够让程序可以动态修改他的数据结构和方法。如下所示：
+[!reflection](./images/reflection_demo.png)
+C++如何实现反射：三步骤
+1. 在代码里面确定需要反射的类型和成员变量等
+2. 生成编译代码，提供accessors去获取函数和成员变量
+3. 通过<string, accessor>的map去管理所有的accessors
+
+现在我们的C++代码一定需要GPL去对编码做编译。例如Clang，获取他的AST（抽象语法树）。
+[!reflection AST](./images/reflection_generate_schema_from_AST.png)
+我们通过定义一些描述词，把希望做反射的数据结构描述一下，这个通过宏来实现。clang有一个__attribute__,它里面有一个叫annotate的关键字，他可以给我们的变量打标记，如下所示：
+[!reflection attribute](./images/reflection_add_attribute.png)
+
+visual script system：主要是解决编程语言的可扩展性。丢掉hard code method，可以动态增加方法。
+
+code rendering：代码渲染：能够自动的把xml或者可视化图转换成代码，这种方式可以把代码和数据区分开。可以使用第三方插件Mustache
+
+协同编辑：类似协同编辑文档。通过划分区域。或者asset分层等方式来实现。或者（one file per actor）但是这样会产生非常多的小文件。
+协同编辑最终的状态是，每一个人可以实时看到别人的编辑结果，这其实是一个网络同步问题。这需要将对所有命令原子化。
+
+引擎和DCC工具在相互抢工作，例如DCC工具想要做一些引擎runtime的事情，引擎想要做类似手K动画的功能。
+
+### 十五、引擎的gameplay
+
+gameplay是一个需要快速迭代的东西，引擎在做的时候，需要支持玩法快速迭代。
+一般使用event来控制物体之间的交互，中间有很多细节，例如使用callback function来实现event系统，但是注册了callback以后，要保证owner不为空。
+gameplay还需要消息分发机制。
+event 在设计的时候会设计一个queue，然后在queue中对event做分类，然后通过batch保证event的并行化。（一个ring buffer）
+
+event系统最好不要默认先后顺序，而是默认下一帧前保证所有的event都已经完成了。
+
+游戏的hotfix：需要使用脚本来做热更新，C++较难使用热更新。并且脚本语言有利于开发效率，crash也不会影响到C++。例如lua、python等
+hotfix的实现方式就是把脚本的函数指针换一下，这个时候要注意全局变量的处理。
+
+可视化脚本（蓝图系统）：就是一个把float等类型编程不同颜色的点，然后连起来编程的一类系统。
+
+3C系统（character、control、camera）
+character系统就是人物和环境的交互，运动，动画等
+control就是键盘、鼠标、各种外设的交互和控制。如何变得敏捷和丝滑。例如射击游戏瞄准时的吸附系统，还有手柄的反馈系统。
+camera实际上是要和玩家绑定到一起，但是实际上相机并不是严格跟着玩家的，还是在不断移动和旋转，特别是2.5D游戏。有可能随着玩家的移动旋转的时候，相机旋转的浮动更大。
+
+### 十六、引擎的基础AI
+
+游戏中的AI导航系统：
+1. 需要对世界有一个表达，例如map representation，
+1.1 waypoint  network：把所有的岔路口放一些节点，这样会形成一个网络图。AI寻路的时候会首先寻找距离最近的节点或者路。这种方法的问题在于玩家总是会往路中间走。即使路很宽
+1.2 grid：使用稠密的triangle、square、hexagon来表示地图，例如文明5就是用六边形表达。这种方法非常好实现，也容易debug，他的缺点是存储空间较为浪费。而且寻路的效率也是比较低的，而且无法寻路有层叠关系的路，例如桥上和桥下。
+1.3 navigation mesh：把地图上所有可通行的区域用一个一个的polygon都连起来。相比较waypoint和grid，他对地图的覆盖是面覆盖代替点覆盖和线覆盖（可以是三角形也可以是别的凸多边形）。若果是凹多边形则有可能会经过一个不可行区域。但是这种方法不能做飞行系统的寻路。
+1.4 sparse otree：空间寻路的实现需要使用sparse  voxel octree。但是他对存储空间要求比较高。
+
+2. path finding：
+寻路就是在representation形成的graph中寻找最短路径。dijkstra算法。但是dijkstra算法相对准确，实际寻路的时候不需要一个非常严格短的路径。这个时候就需要A\*算法。A\*算法是基于dijkstra算法衍生出来的寻路算法，他的思路是，在寻路的过程中不仅需要考虑已走的距离，还要考虑预测到目标点的距离，寻找一个两者相加和最小的点继续往前迭代。并且找到目标点后直接中断算法。从而达到加速的目的。
+
+3. path smoothing：
+只有1,2点会导致路径发生zigzag，会有些奇怪，要拐很多弯路，这里面可以使用烟囱算法来做smoothing（funnel algorithm），具体思路就是连着一个点，判断目标点是在该点烟囱的左边、右边还是中间，如果是中间的话就直接走直线，如果在左边的话，就照着最左边的路走。
+
+4. steering：是为了解决一个问题，就是之前的寻路是立即生效的，但是遇到动作缓慢的物体，例如汽车拥有加速度和减速度，他在运行的时候无法走直线，实际走的是弧线。
+常见的steering动作如下图所示：
+[!steering behaviors](./images/steering_behaviors.png)
+
+4.1 Seek Flee 追和逃，有一个目标点，追和逃 
+
+4.2 VelocityMatch 在起步的时候要加速，快到目标点的时候要减速。这个时候需要根据距离目标点的距离反向算出加速度和速度。
+4.3 align 朝向一致，例如一群鱼群，朝向要一致。
+
+crowd系统，当有鱼群、人群、羊群的时候会有这么一个系统。微观方法上就是每个鱼都有斥力、引力和朝向，要保证鱼之间不会离得很远，也不会离得很近。同时鱼群的方向也要一致。在宏观上要有一个路径或者规则。
+群体行为要避免碰撞（通过相互之间的斥力来解决，或者给每一个障碍物添加一个SDF，sdf越小斥力越大）
+
+速度互斥算法：当发现对面来了物体，且速度会相撞，则会改变自己的速度。
+
+behavior tree：在游戏中会有行为树来控制AI，行为树相比较状态机，拓扑结构更加清晰，行为树的例子如下：
+[!behavior tree](./images/behavior%20tree.png)
+[!behavior tree2](./images/behavior%20tree2.png)
+
+Sequence:Sequence就是按顺序执行，例如先执行门是否关着，如果关着就开门，开门后开枪。
+
+Selector：Selector就是依次选择执行，如下所示
+[!behavior tree selector](./images/Behavior%20tree%20Selector.png)
+
+Parallel:同时发生并执行的事情，例如一面开枪一面走路。
+
+### 十七、引擎的高级AI
+
+Hierarchical task network（HTN）
+行为树的局限性是不直观。HTN是从任务目标出发，就像人类一样去做一个计划。是一种将大目标拆分成各个小目标，然后再拆分成更小的目标。
+Sensor是为了从环境里面抓取状态
+Property是每个玩家自己主观上对世界的感知
+HTN Domain是一个任务系统
+Planner是去做计划，但是这个计划很可能会随着World State变化而变化
+Runner是执行计划
+[!HTN_Framework](./images/HTN_Framework.png)
+
+Task分为几种
+Primitive  Task是包含Preconditions、Action和Effects三个部分的任务。
+Compound Task 是在Primitive的基础上有一个任务执行的优先级，优先看A，如果A满足了就执行A，不满足然后再看B，举例如下所示
+
+[!Compound Task](./images/compound_task.png)
+
+相比较行为树，HTN就是把所有东西分成Task，planning就是去规划这些task，因为在执行task的时候可能会出现意料之外的情况，所以run的时候会动态改变task序列。叫做run时候的replan
+
+HTN的执行效率比行为树高，因为不需要每次都从root节点tick，他是一个更High level的算法。HTN的缺点在于在做好plan 的时候，可能会因为策划的配置失误或者长时间的迭代，没有执行下一个任务。这个时候就需要程序员做一些静态检查工具来帮助完成
+
+
+Goal-Oriented Action Planning（GOAP）基于目标的动作规划
+[!GOAP](./images/GOAP.png)
+只不过分为ACtionSet和Goal Set,
+其中GoalSet中的Goal有Precondition和Priority，
+和BT和HTN的区别在于，GOAP是把目标明确出来，而BT和HTN则是将目标隐含在自己的树状结构中
+[!GOAP GoalSet](./images/GOAP_GoalSet.png)
+
+GOAP的Action Set是有cost的，如下所示：
+[!GOAP ActionSet](./images/GOAP_Actionset.png)
+
+GOAP在执行的时候是以目标为主，倒叙思考，例如我要活着是个目标，然后我中毒了，我得喝解药这又是一个目标，然后为了达到喝解药这个目标要做哪些action。
+然后Action Cost和state组成了一个图，distance是cost，Edge是Action，Node是Combination state
+[!GOAP](./images/GOAP_State_Actino_Cost_Graph.png)
+
+Monte Carlo Tree Search：
+围棋就是使用了类似的方法，首先要把落子的可能性做数学建模，首先要把整个局面抽象成一个State，然后构建蒙特卡洛Tree，在下子以后重新构建一个蒙特卡洛Tree。
+在模拟的过程中，会有一个Default Policy在里面，去判断本次落子的赢面大概有多大。然后选取一个赢面概率最大的节点，再去往下查找赢面。
+在查找的时候，使用的方法是UCB（upper confidence Bounds），优先选择深度迭代，但是如果发现自己的探索广度小于父亲的一定比例，则需要优先广度搜索，如下所示：
+[!upper_confidence_bounds](./images/upper_confidence_bounds.png)
+
+Machine Learning ：
+马尔科夫链基于概率的状态机来做。
+强化学习中，经常先训练一个局部最优解，然后还要不断和别的训练结果左后互博，如下所示：
+[!Reenforence](./images/train_renforce_learning_AI.PNG)
+
+### 十八、网络游戏的基础架构
+
+网络游戏遇到的挑战：延迟，丢包，掉线，外挂，同步，不同设备上的兼容性和一致性，多人并发度以及多人并发下的效率。
+网络的七层结构：
+[!OSI Model](./images/internet_OSI%20Model.PNG)
+
+游戏中使用的网络协议一般是reliable UDP协议。因为TCP不是一个时间稳定的协议，而UDP虽然很快但是却不够可靠。
+ARQ：实际上就是在UDP上使用滑动窗口协议，确认哪些包没有收到，如果没有收到就重新发一下包，保证不丢包。
+[!xor](./images/online_game_xor.PNG)
+
+reliable UDP其实就做了两件事，一个是使用滑动窗口协议保证不丢包，链接稳定，另一个是使用FEC保证丢包以后可以恢复。
+
+RTT：时钟校准和时钟同步：
+给服务器发一个包，然后让服务器再返回一个包，计算中间的时间差值。有一个NTP算法可以做这么一件事情。
+
+在封装网络协议之上，使用RPC来给客户端程序员使用，更为方便。
+
+游戏网络架构：
+
+P2P架构：两个电脑联机到一起，或者一个网吧，可以两个人互为服务器，例如红警，w3等
+
+Dedicated Server：有一个Host Server，会更稳定一些，并且需要大型商业服务器。
+
+游戏同步技术
+
+1. snapshot 同步：客户端只负责传输当前客户端的数据给服务器，服务器收集所有的数据再算，保证了大家数据的绝对一致性。因为很多快照，服务器会比较卡，所以一般服务器是10帧，客户端是30帧，剩余的帧都是插值出来的。同时因为有很多快照，数据量可能会比较大，所以一般会使用diff来存储快照。
+snapshot的问题在于浪费了大量客户端的算力，而且对服务器的带宽需求较大。一般只有在局域网内使用。
+
+2. 帧同步：锁步执行：所有的客户端都把数据汇总给服务器，然后由服务器将所有数据分发给各个客户端做计算，理论上各个客户端的计算结果应该是相同的，服务器只起到了转发数据的作用
+2.1 initialization：在一开始进入游戏的时候，一定要确保各个玩家的数据都是相同的，例如王者荣耀进入游戏时候的init。
+2.2 服务器分发数据给客户端，并且执行同步
+[!deterministic lockstep](./images/Deterministic_lockstep.PNG)
+
+但是这个图有个问题，就是一个人会卡着所有的人，（例如dota）一种优化方法就是每100ms就要收一次消息，像公交车一样，等不到也要出发，例如下面一张图：
+[!bucket synchronization](./images/bucket_synchronization.PNG)
+帧同步有一个关键点，就是游戏的确定性，就是物理引擎，vector等数学库，浮点精度一定要有一致性。
+
+浮点数误差保证：使用分数
+cos、sin等使用查表法。
+game state也尽量弄成确定性的事情。
+随机数的种子也要一致。
+
+即使使用了帧同步，也会出现网络抖动和延迟的情况，这个时候一般客户端会cache一两帧服务器发来的数据。然后使用插值的方式做smooth。
+
+快照策略：一般会把渲染帧和逻辑帧分开，然后本地会在拿到服务器数据后在本地做一个快照，然后在掉线10秒户重新从快照的地方将所有算力用来计算逻辑。部分游戏的服务器也会保存一些快照，保证玩家掉线后直接给玩家当前状态。游戏的观战和回放也会使用帧同步的快照技术。
+
+帧同步的外挂问题：因为帧同步基本要保证每一个客户端都保存了所有玩家的所有状态，如果有战争迷雾的话，很容易写一些透视挂。
+
+3. 状态同步：
+
+大部分的MMORPG都用的状态同步。
+
+不会把玩家所有的信息都传输给服务器，而是每个人只发送自己的一部分数据，而服务器是拥有所有玩家的状态的，在计算完以后会把一部分的数据（玩家的状态）发送个各个玩家。
+
+Authorized：玩家自己的电脑，玩家只提出自己的动作
+Server：会收集所有玩家的动作。然后计算结果后，将结果发送给各个玩家。
+Replicated：在其他玩家的电脑模拟某个玩家。是一个玩家的复制。玩家的状态则是由服务端计算得到的。
+
+状态同步通常会有一个延迟，因为需要把数据发送给server，然后server再发送到客户端，这个时候客户端会有一个overwatch，有一个预测。
+[!state_sync_compare](./images/state_syc_compare.PNG)
+
+### 十九、网络游戏的进阶架构
+
+因为延迟导致的抖动：可以通过buffer和插值来修复，这种方法虽然可以让动作很平滑但是这种方法会导致延迟更高，而且这种延迟会导致碰撞游戏出现问题。
+
+外插值可以解决碰撞游戏的问题。但是外插针需要预测未来的状态。
+PVB算法：
+[!Projective Velocity Blending](./images/Projective%20Velocity%20Blending.PNG)
+
+[!Projective Velocity Blending2](./images/Projective%20Velocity%20Blending2.PNG)
+
+
+
 
