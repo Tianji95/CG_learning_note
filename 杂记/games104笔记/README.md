@@ -656,5 +656,59 @@ PVB算法：
 [!Projective Velocity Blending2](./images/Projective%20Velocity%20Blending2.PNG)
 
 
+一般符合物理学规律的游戏（例如战舰大战）使用外插针
+一般比较敏捷，不符合物理规律的游戏使用内插针，也有把两个糅合在一起的用法。
+
+射击游戏的射击判定一般放在客户端，因为可以避免网络延迟，这样会很容易写外挂。服务器端也做检测会检测外挂。
+
+射击判断放在服务器端可能会有比较大的延迟，需要使用Lag Compensation（延迟补偿）解决：
+把状态的时钟往回拨，根据服务器端的数据做猜测。这种方法会导致在竞技游戏中不公平。
+
+动画前摇（可以给网络同步争取时间）
+
+MMO的架构：
+[!MMO_Architecture](./images/MMO_Architecture.PNG)
+
+MMO链接服务器以前会先链接Login Server，然后会链接GateWay 要先保证账号是没问题的，其次保证不会被DDOS攻击。
+Lobby：再经过GateWay后会进入游戏大厅，他相当于一个缓冲池。让所有用户都在这里等。
+Character  Server：专门负责所有玩家的属性数据，例如发邮件，血量，装备等。
+Trading System：安全性和原子性要求很高，
+Social System：拉黑，拉小群聊天
+游戏数据库会使用redis内存数据库
+分布式服务器：主要是数据访问，网络的复杂性，数据的传输，数据的一致性。
+负载均衡：要有哈希算法。
+
+带宽优化：
+浮点数优化，例如把xyz优化成x和y，double变成float，或者对游戏分区，然后再用定点数优化。
+分区一般是把世界分成多个cell，或者使用十字链表。
+
+反作弊：
+1. 检查内存，抓用户的数据，把数据改了。单机游戏一般这么做，防止办法都是客户端加壳， 数据做混淆，
+2. 修改本地存储文件，例如把一些材质修改成透明材质，这样就有透视挂了，一般对本地文件数值做哈希校验。
+3. 网络包截获并修改。一般应对方法就是对网络包做加密，使用不对称加密算法一个公钥一个私钥，在最开始使用速度最慢但是最安全的ssh传输公钥。
+4. AI作弊：比较难识别。
 
 
+开放世界：
+1. 把世界分成很多zoning，把世界分成几个小块，一般会用四叉树，一般每一个zoning会有一个自己的边界（border），数据的加载也会有一个延迟和阈值。只有超过一定阈值才会销毁另一个zone里面的数据。
+2. instancing
+3. replication：我将每一个character放到多个平行世界里面，分成多个层。例如天刀在押镖时候的不同服务器。
+
+### 二十、面向数据编程和任务系统
+
+worker架构：[!fork_join](./images/thread_fork_join.PNG)
+
+Coroutine概念：相比较切换线程，Coroutine本质就是用了个调用栈，没有上下文切换，开销小得多，
+[!coroutine](./images/coroutine.PNG)
+
+Fiber-Based-Job-System
+JobSystem：
+
+OOP的问题：继承的深度通常会很深，而且很多操作可能既可以在父类里面做，也可以在子类中做。
+
+[!performance](./images/performance_everything.PNG)
+
+
+
+对Shadowmap做reproj，或者做culling
+shadowmap本质是用视空间的精度对光空间的精度做采样。
