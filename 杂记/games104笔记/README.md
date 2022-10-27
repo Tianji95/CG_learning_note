@@ -37,7 +37,7 @@ CPU的缓存经常是游戏的卡点（想起来苹果的CPU缓存就比较大�
 也可以分为属性和行为。
 
 一开始游戏引擎是面向对象的游戏引擎，但是有些物体是较难区分福字关系的，例如军舰继承自船，坦克继承自车，但是水陆两栖登陆艇就很难继承了。因此就有了ECS，是Component Base的思想，把枪拆成多个组件，例如消音器、瞄准镜等，也可以把AI模块、模型模块、物理模块、旋转变换等都变成组件。
-[!商业引擎的component](./images/components_in_unity_and_unreal.png)
+![商业引擎的component](./images/components_in_unity_and_unreal.png)
 
 游戏世界由GameObject组成，而每一个GO都是由Components组成
 
@@ -70,7 +70,7 @@ event怎么调试：不停地加log。。。。
 4. CPU、带宽和内存的限制
 
 渲染的outline：
-[!渲染的outline](./images/render_outline.png)
+![渲染的outline](./images/render_outline.png)
 
 texture sampling, 绘制一个像素点，需要采样两层mipmap，每个mipmap采样4个像素点。
 
@@ -141,16 +141,16 @@ fog 3d texture的分辨率是160x90，是因为屏幕分辨率是16x9
 
 
 bloom：解决的是光晕的问题
-[!bloom](./images/bloom.png)
+![bloom](./images/bloom.png)
 tone Mapping：是为了解决曝光过亮或者曝光过暗的问题。相当于把HDR映射到LDR区域。ACES则是一种调节过的tone mapping的曲线，效果更好，
 
 color grading：有点像滤镜，通常使用lut实现，把颜色从一个颜色映射到另一种颜色。这个是提升游戏质量，效果最重要的后处理方式。
-[!color grading](./images/color%20grading.png)
+![color grading](./images/color%20grading.png)
 
 
 frame graph和unity的SRP一样，都是用来显示各个renderpass的前后依赖关系，从而让大家知道整个渲染流程是怎样的，有利于debug
 
-[!ue5_render pipeline](./images/ue_render_pipeline.png)
+![ue5_render pipeline](./images/ue_render_pipeline.png)
 
 ### 八、游戏引擎的动画系统
 
@@ -181,7 +181,7 @@ physics based animation：通过物理模拟动画中的衣料、IK等。
 另一种办法就是，只存关键帧，计算关键帧插值出来的动画和原始动画做比较，如果小于一定阈值，则保存这个关键帧，这样保存出来的关键帧是非均匀的。
 
 catmull-Rom 曲线：通过四个控制点，决定P1和P2之间的曲线，如下图所示：
-[!catmull-Rom曲线](./images/catmull-Rom%E6%9B%B2%E7%BA%BF.png)
+![catmull-Rom曲线](./images/catmull-Rom%E6%9B%B2%E7%BA%BF.png)
 动画压缩也可以通过缩减浮点数，使用16bit整数来表示浮点数。
 
 但是动画压缩有一个问题，就是会导致末端骨骼的精度不够，所以需要用一个error Compensation来评估动画对精度的敏感度。
@@ -191,21 +191,21 @@ catmull-Rom 曲线：通过四个控制点，决定P1和P2之间的曲线，如�
 动画状态机：action state machine，动画之间的切换需要使用插值，插值的方式有很多种插值曲线。不同的插值曲线的效果是不同的。
 
 layered ASM：角色的上半身有一套状态机，角色的中间用一套状态机，下半身也有一套状态机。中间是分开的。而现代游戏引擎使用的是动画树（Animation Blend Tree)
-[!动画树](./images/action%20blend%20tree.png)
+![动画树](./images/action%20blend%20tree.png)
 动画树就是layered ASM的超集，可以把所有的节点都按照树形结构结合在一起。UE的动画树是做的相对比较好的。
 
 IK：其实就是一个稳定三角形，计算膝盖处的位置，如下图所示：
-[!two bone IK](./images/two_bone_IK.png)
+![two bone IK](./images/two_bone_IK.png)
 但是该方法求得的解空间是一个圆，所以需要美术给一个方向，最后的IK是在这个方向上得到最终的解。
 
 Multi-Joint IK：相对比较难的，因为有无穷多解，需要依次做下面几个事情：
 1. 先确定所有的骨骼长度能否达到目标点
 2. 确定所有的骨骼折了以后是否过长而无法达到目标点，如下所示
-[!multi-joint IK limit](./images/multi_joint_IK_liminate.png)
+![multi-joint IK limit](./images/multi_joint_IK_liminate.png)
 3. 根据人体每根骨骼的旋转约束，来保证IK的结算是自然的。
 Heuristics Algorithm IK（例如CCD IK）：具体思路就是从最末端节点沿着目标点做旋转，然后不断迭代。
 但是只纯IK会有问题，可能最末端的骨骼弯曲的很严重，但是前面的骨骼还没弯曲就已经达到最后的结果了。所以IK最开始的时候会有一个圆圈确定大致范围，先做一次迭代，然后逐渐缩小圆圈半径，如下所示
-[!CCD_IK](./images/CCD_IK.png)
+![CCD_IK](./images/CCD_IK.png)
 
 另一种CCD_IK的约束方法就是每一个骨骼都有一个最大旋转角度，保证旋转的角度不会过于畸形。
 
@@ -221,7 +221,7 @@ IK目前存在的问题：
 
 整个动画管线如下所示：
 animation pipeline：
-[!animation pipeline](./images/animation_pipeline.png)
+![animation pipeline](./images/animation_pipeline.png)
 
 Facial Action Unit：把人的表情归类到46类表情，因为很多表情是对称的，所以到最后归纳为28个常用的AU。然后通过blending来表示动画。真实的AU保存的是一些表情某个区域相对于neutral pose的区别。从而可以对面部做局部控制
 
@@ -247,19 +247,19 @@ Actor Shapes：
 
 物理引擎中，力可能是会频繁发生变化的，例如一个小球在做圆周运动，但是因为引擎是按时间更新的，且更新的时候不知道这个圆会做圆周运动，所以给的力经常会慢一拍，从而导致圆周运动不收敛，如下图所示：
 
-[!euler method](./images/euler_method.png)
-[!euler method](./images/forward_euler_method.png)
+![euler method](./images/euler_method.png)
+![euler method](./images/forward_euler_method.png)
 
 该问题的解决办法：隐式欧拉法：使用未来的力预测未来的位置，但是会导致能量衰减。在物理引擎里面能量衰减可解释（例如摩擦力）
-[!euler method](./images/implicit_euler_method.png)
+![euler method](./images/implicit_euler_method.png)
 
 物理引擎更常用的方法是半隐式欧拉法
-[!semi-implicit-euler-method](./images/semi-implicit-Euler-method.png)
+![semi-implicit-euler-method](./images/semi-implicit-Euler-method.png)
 
 刚体动力学：质量、速度、加速度、动量、
 旋转R（使用旋转矩阵或者四元数表达）、
 角速度（Angular Velocity）在物体的任意一不通过轴心的点，然后这个点有一个切向速度，把这个点和轴连在一起形成了一个方向，使用右手法则做一个叉积，就可以得到旋转轴的方向。这样可以同时表达旋转轴、切向速度和旋转方向，如下所示：
-[!angular velocity](./images/angular_velocity.png)
+![angular velocity](./images/angular_velocity.png)
 
 角加速度（Angular Acceleration）角速度出于dt就是角加速度了。
 
@@ -273,13 +273,13 @@ Actor Shapes：
 
 使用BVH快速检测碰撞
 使用sort and sweep 来做碰撞检测，该方法优势在于只要把物体都提前排序以后，只移动少部分物体，效率会非常高。
-[!broad phase sort and sweep](./images/broad%20phase%20sort%20and%20sweep.png)
+![broad phase sort and sweep](./images/broad%20phase%20sort%20and%20sweep.png)
 
 物体求交：
 圆、胶囊等求交相对简单
 凸包的求交使用Minkowski 和和Minkowski difference来判断。Minkowski difference肯定会经过圆点，使用GJK算法找到圆点
 另一种算法是通过判断是否存在一条边能把两个物体分开
-[!separating axis](./images/separating%20axis%20theorem2d.png)
+![separating axis](./images/separating%20axis%20theorem2d.png)
 
 碰撞检测后的处理：添加一个新的力。
 
@@ -307,12 +307,12 @@ character controller：
 另一种方法是通过ragdoll的方式，让几根骨骼驱动衣料，然后通过物理算骨骼的动画
 效果最好的办法是基于mesh的衣料动画，physics mesh一般会比render mesh稀疏很多，然后render mesh 通过physics mesh 插值生成。而且physics mesh会有运动的约束权重，例如人身上的披风，靠近肩膀的地方能移动的范围会比较有限，而靠近下面的披风mesh约束会小很多。
 衣料的物理模型实现是通过弹簧质点模拟实现的。他有两个力，一个是弹性产生的力，另外会有一个能量消耗力（damping）。
-[!cloth solver](./images/clothsolver_mass-spring%20system.png)
+![cloth solver](./images/clothsolver_mass-spring%20system.png)
 
 verlet积分：是基于半隐式积分
 
 目前布料的结算经常用的是Position Based Dynamic去结算，如下图所示：
-[!position based dynamic](./images/cloth%20solver%20position%20based%20dynamics.png)
+![position based dynamic](./images/cloth%20solver%20position%20based%20dynamics.png)
 
 布料模拟的另一个问题是布料的自穿插。解决办法是使用最大速度的限制。或者把布料的物理模拟加厚
 
@@ -355,7 +355,7 @@ Ribbon 粒子：粒子形成的是一条光带，例如光剑（魔法剑）挥�
 渲染粒子的优化方法：将粒子渲染做降分辨率
 
 GPU粒子：GPU很适合做粒子，因为粒子的数量庞大，同时计算简单。
-[!GPU particles](./images/GPU_particles.png)
+![GPU particles](./images/GPU_particles.png)
 粒子有专门的一个数据机构，有一个alive Particles List还有一个dead list，每当一个粒子死亡，需要从alive list移到deadlist里面，而emiter每发射一个粒子，需要从deadlist把相应的粒子拿出来放到alive list里面，GPU每帧只需要对alive list里面的粒子做模拟即可。
 
 粒子的计算跟视角无关，即使看不到的粒子也需要每帧计算，只是不需要绘制了而已。
@@ -386,7 +386,7 @@ listener的位置，速度还有朝向
 ### 十三、引擎工具链基础
 
 所见即所得的工具链
-[!game engine runtime framework](./images/game_engine_runtime_framework.png)
+![game engine runtime framework](./images/game_engine_runtime_framework.png)
 
 引擎工具链的本质是要连接各个特色的人，把大家连接到一起协作，例如美术，策划，程序员连接到一起。
 
@@ -394,14 +394,14 @@ listener的位置，速度还有朝向
 
 Retained Mode GUI有很多设计方式，例如MVC，MVVM等，
 其中MVC架构的思想是只能通过model来改变view，而view不能改变model，用户的操作只能通过controller来改变model。这种方式只有“单行线”，容易管理。
-[!MVC](./images/MVC.png)
+![MVC](./images/MVC.png)
 
 还有一个设计模式是MVP：就是把Controller编程persenter，作为中间者。
-[!MVP](./images/MVP.png)
+![MVP](./images/MVP.png)
 
 MVVM模型，把persenter换成viewmodel
 只不过他中间用的是binding机制，view就只有XML，是艺术家来写的，viewmodel是把xml和model绑定到一起的作用,是一种数据转换。model拥有自己的数据。
-[!MVVM](./images/mvvm.png)
+![MVVM](./images/mvvm.png)
 
 在写工具的时候，最好不用自己写的GUI，而是使用现成的工具例如QT等。
 
@@ -425,12 +425,12 @@ command系统最主要的三个操作是add、delete和update。
 如何处理工具链中各个资源格式不同的问题：
 使用schema：将所有复杂的数据都拆分成一些“原子数据”，schema更像是一个分子式，是一个描述物体的格式，schema通常是一个xml，而且要有继承关系，例如军人的schema可以继承自人的schema。同时还需要能够相互reference数据。能够把数据关联在一起。
 
-[!schema define](./images/schema_define.png)
+![schema define](./images/schema_define.png)
 
 工具还有一个能力就是要给不同的人给不同的View，例如不能给美术弧度，而是要给角度，要给调色板而不是RGB数值。
 
 工具链还需要“所见即所得”具体的做法是直接复用引擎代码，例如下面的引擎架构
-[!game tools framework](./images/game_tools_framework.png)
+![game tools framework](./images/game_tools_framework.png)
 
 工具链还需要有“play in Editor”功能，就是直接在编辑器里面运行游戏。
 
@@ -458,16 +458,16 @@ World Editor还需要有插件系统，而且需要支持多个插件共存。�
 游戏引擎的叙事系统：包含每个物体的时间线，然后多个物体的时间线放在一起会有动画或者叙事系统。
 
 反射系统：就是能够让程序可以动态修改他的数据结构和方法。如下所示：
-[!reflection](./images/reflection_demo.png)
+![reflection](./images/reflection_demo.png)
 C++如何实现反射：三步骤
 1. 在代码里面确定需要反射的类型和成员变量等
 2. 生成编译代码，提供accessors去获取函数和成员变量
 3. 通过<string, accessor>的map去管理所有的accessors
 
 现在我们的C++代码一定需要GPL去对编码做编译。例如Clang，获取他的AST（抽象语法树）。
-[!reflection AST](./images/reflection_generate_schema_from_AST.png)
+![reflection AST](./images/reflection_generate_schema_from_AST.png)
 我们通过定义一些描述词，把希望做反射的数据结构描述一下，这个通过宏来实现。clang有一个__attribute__,它里面有一个叫annotate的关键字，他可以给我们的变量打标记，如下所示：
-[!reflection attribute](./images/reflection_add_attribute.png)
+![reflection attribute](./images/reflection_add_attribute.png)
 
 visual script system：主要是解决编程语言的可扩展性。丢掉hard code method，可以动态增加方法。
 
@@ -514,7 +514,7 @@ camera实际上是要和玩家绑定到一起，但是实际上相机并不是�
 
 4. steering：是为了解决一个问题，就是之前的寻路是立即生效的，但是遇到动作缓慢的物体，例如汽车拥有加速度和减速度，他在运行的时候无法走直线，实际走的是弧线。
 常见的steering动作如下图所示：
-[!steering behaviors](./images/steering_behaviors.png)
+![steering behaviors](./images/steering_behaviors.png)
 
 4.1 Seek Flee 追和逃，有一个目标点，追和逃 
 
@@ -527,13 +527,13 @@ crowd系统，当有鱼群、人群、羊群的时候会有这么一个系统。
 速度互斥算法：当发现对面来了物体，且速度会相撞，则会改变自己的速度。
 
 behavior tree：在游戏中会有行为树来控制AI，行为树相比较状态机，拓扑结构更加清晰，行为树的例子如下：
-[!behavior tree](./images/behavior%20tree.png)
-[!behavior tree2](./images/behavior%20tree2.png)
+![behavior tree](./images/behavior%20tree.png)
+![behavior tree2](./images/behavior%20tree2.png)
 
 Sequence:Sequence就是按顺序执行，例如先执行门是否关着，如果关着就开门，开门后开枪。
 
 Selector：Selector就是依次选择执行，如下所示
-[!behavior tree selector](./images/Behavior%20tree%20Selector.png)
+![behavior tree selector](./images/Behavior%20tree%20Selector.png)
 
 Parallel:同时发生并执行的事情，例如一面开枪一面走路。
 
@@ -546,13 +546,13 @@ Property是每个玩家自己主观上对世界的感知
 HTN Domain是一个任务系统
 Planner是去做计划，但是这个计划很可能会随着World State变化而变化
 Runner是执行计划
-[!HTN_Framework](./images/HTN_Framework.png)
+![HTN_Framework](./images/HTN_Framework.png)
 
 Task分为几种
 Primitive  Task是包含Preconditions、Action和Effects三个部分的任务。
 Compound Task 是在Primitive的基础上有一个任务执行的优先级，优先看A，如果A满足了就执行A，不满足然后再看B，举例如下所示
 
-[!Compound Task](./images/compound_task.png)
+![Compound Task](./images/compound_task.png)
 
 相比较行为树，HTN就是把所有东西分成Task，planning就是去规划这些task，因为在执行task的时候可能会出现意料之外的情况，所以run的时候会动态改变task序列。叫做run时候的replan
 
@@ -560,39 +560,39 @@ HTN的执行效率比行为树高，因为不需要每次都从root节点tick，
 
 
 Goal-Oriented Action Planning（GOAP）基于目标的动作规划
-[!GOAP](./images/GOAP.png)
+![GOAP](./images/GOAP.png)
 只不过分为ACtionSet和Goal Set,
 其中GoalSet中的Goal有Precondition和Priority，
 和BT和HTN的区别在于，GOAP是把目标明确出来，而BT和HTN则是将目标隐含在自己的树状结构中
-[!GOAP GoalSet](./images/GOAP_GoalSet.png)
+![GOAP GoalSet](./images/GOAP_GoalSet.png)
 
 GOAP的Action Set是有cost的，如下所示：
-[!GOAP ActionSet](./images/GOAP_Actionset.png)
+![GOAP ActionSet](./images/GOAP_Actionset.png)
 
 GOAP在执行的时候是以目标为主，倒叙思考，例如我要活着是个目标，然后我中毒了，我得喝解药这又是一个目标，然后为了达到喝解药这个目标要做哪些action。
 然后Action Cost和state组成了一个图，distance是cost，Edge是Action，Node是Combination state
-[!GOAP](./images/GOAP_State_Actino_Cost_Graph.png)
+![GOAP](./images/GOAP_State_Actino_Cost_Graph.png)
 
 Monte Carlo Tree Search：
 围棋就是使用了类似的方法，首先要把落子的可能性做数学建模，首先要把整个局面抽象成一个State，然后构建蒙特卡洛Tree，在下子以后重新构建一个蒙特卡洛Tree。
 在模拟的过程中，会有一个Default Policy在里面，去判断本次落子的赢面大概有多大。然后选取一个赢面概率最大的节点，再去往下查找赢面。
 在查找的时候，使用的方法是UCB（upper confidence Bounds），优先选择深度迭代，但是如果发现自己的探索广度小于父亲的一定比例，则需要优先广度搜索，如下所示：
-[!upper_confidence_bounds](./images/upper_confidence_bounds.png)
+![upper_confidence_bounds](./images/upper_confidence_bounds.png)
 
 Machine Learning ：
 马尔科夫链基于概率的状态机来做。
 强化学习中，经常先训练一个局部最优解，然后还要不断和别的训练结果左后互博，如下所示：
-[!Reenforence](./images/train_renforce_learning_AI.PNG)
+![Reenforence](./images/train_renforce_learning_AI.PNG)
 
 ### 十八、网络游戏的基础架构
 
 网络游戏遇到的挑战：延迟，丢包，掉线，外挂，同步，不同设备上的兼容性和一致性，多人并发度以及多人并发下的效率。
 网络的七层结构：
-[!OSI Model](./images/internet_OSI%20Model.PNG)
+![OSI Model](./images/internet_OSI%20Model.PNG)
 
 游戏中使用的网络协议一般是reliable UDP协议。因为TCP不是一个时间稳定的协议，而UDP虽然很快但是却不够可靠。
 ARQ：实际上就是在UDP上使用滑动窗口协议，确认哪些包没有收到，如果没有收到就重新发一下包，保证不丢包。
-[!xor](./images/online_game_xor.PNG)
+![xor](./images/online_game_xor.PNG)
 
 reliable UDP其实就做了两件事，一个是使用滑动窗口协议保证不丢包，链接稳定，另一个是使用FEC保证丢包以后可以恢复。
 
@@ -615,10 +615,10 @@ snapshot的问题在于浪费了大量客户端的算力，而且对服务器的
 2. 帧同步：锁步执行：所有的客户端都把数据汇总给服务器，然后由服务器将所有数据分发给各个客户端做计算，理论上各个客户端的计算结果应该是相同的，服务器只起到了转发数据的作用
 2.1 initialization：在一开始进入游戏的时候，一定要确保各个玩家的数据都是相同的，例如王者荣耀进入游戏时候的init。
 2.2 服务器分发数据给客户端，并且执行同步
-[!deterministic lockstep](./images/Deterministic_lockstep.PNG)
+![deterministic lockstep](./images/Deterministic_lockstep.PNG)
 
 但是这个图有个问题，就是一个人会卡着所有的人，（例如dota）一种优化方法就是每100ms就要收一次消息，像公交车一样，等不到也要出发，例如下面一张图：
-[!bucket synchronization](./images/bucket_synchronization.PNG)
+![bucket synchronization](./images/bucket_synchronization.PNG)
 帧同步有一个关键点，就是游戏的确定性，就是物理引擎，vector等数学库，浮点精度一定要有一致性。
 
 浮点数误差保证：使用分数
@@ -643,7 +643,7 @@ Server：会收集所有玩家的动作。然后计算结果后，将结果发�
 Replicated：在其他玩家的电脑模拟某个玩家。是一个玩家的复制。玩家的状态则是由服务端计算得到的。
 
 状态同步通常会有一个延迟，因为需要把数据发送给server，然后server再发送到客户端，这个时候客户端会有一个overwatch，有一个预测。
-[!state_sync_compare](./images/state_syc_compare.PNG)
+![state_sync_compare](./images/state_syc_compare.PNG)
 
 ### 十九、网络游戏的进阶架构
 
@@ -651,9 +651,9 @@ Replicated：在其他玩家的电脑模拟某个玩家。是一个玩家的复�
 
 外插值可以解决碰撞游戏的问题。但是外插针需要预测未来的状态。
 PVB算法：
-[!Projective Velocity Blending](./images/Projective%20Velocity%20Blending.PNG)
+![Projective Velocity Blending](./images/Projective%20Velocity%20Blending.PNG)
 
-[!Projective Velocity Blending2](./images/Projective%20Velocity%20Blending2.PNG)
+![Projective Velocity Blending2](./images/Projective%20Velocity%20Blending2.PNG)
 
 
 一般符合物理学规律的游戏（例如战舰大战）使用外插针
@@ -667,7 +667,7 @@ PVB算法：
 动画前摇（可以给网络同步争取时间）
 
 MMO的架构：
-[!MMO_Architecture](./images/MMO_Architecture.PNG)
+![MMO_Architecture](./images/MMO_Architecture.PNG)
 
 MMO链接服务器以前会先链接Login Server，然后会链接GateWay 要先保证账号是没问题的，其次保证不会被DDOS攻击。
 Lobby：再经过GateWay后会进入游戏大厅，他相当于一个缓冲池。让所有用户都在这里等。
@@ -696,17 +696,17 @@ Social System：拉黑，拉小群聊天
 
 ### 二十、面向数据编程和任务系统
 
-worker架构：[!fork_join](./images/thread_fork_join.PNG)
+worker架构：![fork_join](./images/thread_fork_join.PNG)
 
 Coroutine概念：相比较切换线程，Coroutine本质就是用了个调用栈，没有上下文切换，开销小得多，
-[!coroutine](./images/coroutine.PNG)
+![coroutine](./images/coroutine.PNG)
 
 Fiber-Based-Job-System
 JobSystem：
 
 OOP的问题：继承的深度通常会很深，而且很多操作可能既可以在父类里面做，也可以在子类中做。
 
-[!performance](./images/performance_everything.PNG)
+![performance](./images/performance_everything.PNG)
 
 
 
