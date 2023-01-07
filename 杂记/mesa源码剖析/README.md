@@ -14,7 +14,9 @@ opengl重点文件：.\src\mesa\main,    .\src\mesa\state_tracker,会涉及到�
 
 所有的入口函数都是_mesa_xxxx,例如_mesa_BindBuffer、_mesa_BindBufferRange等。
 
-### buffer
+当前进度4/136
+
+### buffer（共15个接口）
 
 buffer入口 src\main\mesa\bufferobj 和 src\main\mesa\buffer
 
@@ -34,11 +36,24 @@ buffer入口 src\main\mesa\bufferobj 和 src\main\mesa\buffer
 
 入口函数_mesa_BindBufferRange——bind_buffer_range，该函数是把指定的buffer范围绑定到指定的GPU index上。
 
+他会根据target的不同，通过switch到别的接口，如下所示：
 
+![bindbufferrange](./images/bindbufferrange.PNG)
+
+**流程：**_mesa_BindBufferRange——bind_buffer_range——\_mesa_reference_buffer_object(主要是把当前的buffer绑定到ctx上的uniformbuffer上) —— bind_uniform_buffer——bind_buffer（主要是把buffer绑定到ctx->UniformBufferBindings[index]上面，其实就是下面这段代码：
+
+```
+_mesa_reference_buffer_object(ctx, &binding->BufferObject, bufObj);
+binding->Offset = offset;
+binding->Size = size;
+binding->AutomaticSize = autoSize;
+```
 
 ##### glBindBufferBase
 
+和glbindbufferrange类似
 
+**流程：**
 
 ##### glBufferData 和glBufferSubData
 
@@ -64,51 +79,261 @@ buffer入口 src\main\mesa\bufferobj 和 src\main\mesa\buffer
 
 
 
+### shader（共22个接口）
 
+##### glcreateshader
 
+##### glshadersource
 
+##### glcompileshader
 
-### shader
+##### glshaderbinary
 
+##### glreleaseshadercompiler
 
+##### glcreateprogram
 
+##### glattachshader
 
+##### gllinkprogram
 
-### query
+##### gluseprogram
 
+##### glcreateshaderprogramv
 
+##### glprogramparameteri
 
+##### glgenprogrampipelines
 
+##### glbindprogrampipeline
 
-### texture
+##### gluseprogramstages
 
+##### glactiveshaderprogram
 
+##### glprogrambinary
 
+##### glgetuniformlocation
 
+##### glGetActiveUniform
 
-### framebuffer
+##### glUniform{1234}v
 
+##### uniformBlockBinding
 
+##### GetSubroutineUniformLocation
 
+##### MemoryBarrier
 
+### query（共4个接口）
 
-### VertexArray
+##### glGenQueries
 
+##### glBeginQuery和glBeginQueryIndexed
 
+##### glEndQuery和glEndQueryIndexed
 
+##### glGetQueryiv
 
+### texture（共25个接口）
 
-### VertexAttribute
+##### glActiveTexture
 
+##### glGenTextures
 
+##### glBindTexture
 
-### Transform Feedback
+##### glDeleteTextures
 
+##### glGenSamplers
 
+##### glBindSampler
 
+##### glSamplerParameter
 
+##### glGetSamplerParameter
 
-### Rasterization
+##### glTexImage2D
+
+##### glCopyTexImage2D
+
+##### glTexSubImage2D
+
+##### glCompressedTexImage2D
+
+##### glTexImage2DMultisample
+
+##### glTexBufferRange
+
+##### glTexParameteri
+
+##### glGetTexParameter
+
+##### glGetTexImage
+
+##### glEnable和glDisable
+
+##### glGenerateMipmap
+
+##### glTextureView
+
+##### glTexStorage2D
+
+##### glTexStorage2DMultisample
+
+##### glInvalidateTexSubImage
+
+##### glBindImageTexture
+
+### framebuffer（共23个）
+
+##### glGenFramebuffers
+
+##### glBindFramebuffer
+
+##### glFramebufferParameteri
+
+##### glBindRenderbuffer
+
+##### glGenRenderbuffers
+
+##### glRenderbufferStorageMultisample
+
+##### glRenderbufferStorage
+
+##### glGetRenderbufferParameteriv
+
+##### glGetShaderSource
+
+##### glFramebufferRenderbuffer
+
+##### glFramebufferTexture
+
+##### glFramebufferTexture2D
+
+##### glDrawBuffer和glDrawBuffers
+
+##### glColorMask
+
+##### glStencilMask
+
+##### glClear
+
+##### glClearColor
+
+##### glInvalidateSubFramebuffer
+
+##### glReadPixels
+
+##### glReadBuffer
+
+##### glBlitFramebuffer
+
+##### glCopyImageSubData
+
+##### glClampColor
+
+### DrawVertexArray（共16个）
+
+##### glVertexAttrib{1234}{s f d}
+
+##### glVertexAttribFormat
+
+##### glBindVertexBuffer
+
+##### glVertexAttribBinding
+
+##### glEnableVertexAttribArray和glDisableVertexAttribArray
+
+##### glVertexBindingDivisor
+
+##### glGenVertexArrays
+
+##### glBindVertexArray
+
+##### glDrawArrays
+
+##### glDrawElementsInstancedBaseVertexBaseInstace
+
+##### glDrawArraysIndirect
+
+##### glMultiDrawArrays
+
+##### glDrawRangeElementsBaseVertex
+
+##### glMultiDrawElementsIndirect
+
+##### glDispatchCompute
+
+##### glDispatchComputeIndirect
+
+### VertexAttribute（共5个）
+
+##### glGetActiveAttrib
+
+##### glGetAttribLocation
+
+##### glBindAttribLocation
+
+##### glValidProgram
+
+##### glPatchParameterfv
+
+### Transform Feedback（共9个）
+
+##### glTransformFeedbackVaryings
+
+##### glGetTransformFeedbackVarying
+
+##### glGenTransformFeedbacks
+
+##### glBindTransformFeedback
+
+##### glBeginTransformFeedback
+
+##### glEndTransformFeedback
+
+##### glPauseTransformFeedback
+
+##### glDrawTransformFeedback
+
+##### glDrawTransformFeedbackStreamInstanced
+
+### Rasterization(共17个)
+
+##### glProvokingVertex
+
+##### glGetMultisamplefv
+
+##### glMinSampleShading
+
+##### glPointSize
+
+##### glPointParameter
+
+##### glFrontFace
+
+##### glCullFace
+
+##### glPolygonMode
+
+##### glPolygonOffset
+
+##### glPixelStore
+
+##### glScissorIndexed
+
+##### glStencilFunc
+
+##### glStencilOp
+
+##### glDepthFunc
+
+##### glBlendEquationSaparate
+
+##### glBlendFuncSaparate
+
+##### glBlendColor
 
 
 
