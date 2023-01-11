@@ -25,7 +25,7 @@ r600_buffer_subdata（以Amd r600为例）/ i915_buffer_subdata（以intel i915�
 
 所有的入口函数都是_mesa_xxxx,例如_mesa_BindBuffer、_mesa_BindBufferRange等。
 
-当前进度23/136
+当前进度31/136
 
 ### buffer（共15个接口）
 
@@ -116,7 +116,7 @@ glInvalidateBufferData走的也是glInvalidateBufferSubData的路子
 
 ### shader（共22个接口）
 
-shader入口 src\main\mesa\shaderapi.c
+shader入口 src\mesa\main\shaderapi.c和src\mesa\main\pipelineobj.c
 
 ##### glcreateshader
 
@@ -231,19 +231,47 @@ _mesa_use_program就是切换到这个program，同时切换的还有vertexprogr
 
 只是更改了一下某个program下面某个参数的值，pname只支持两个枚举，分别是GL_PROGRAM_BINARY_RETRIEVABLE_HINT和GL_PROGRAM_SEPARABLE。感觉这个接口很少用
 
-
-
 ##### glgenprogrampipelines
+
+这个函数的入口在pipelineobj.c的_mesa_GenProgramPipelines函数中，接口的作用是把从vertex 阶段到fragment shader阶段的所有配置都存起来。和其他genxxx一样，这个接口创建了n个新的pipeline object，伪代码如下：
+
+```
+struct gl_pipeline_object *obj = rzalloc(NULL, struct gl_pipeline_object);
+if (obj) {
+    obj->Name = name;
+    obj->RefCount = 1;
+    obj->Flags = _mesa_get_shader_flags();
+    obj->InfoLog = NULL;
+}
+```
 
 ##### glbindprogrampipeline
 
+入口函数也在pipeline's里面，bind_program_pipeline。
+
+首先需要找到有没有对应的pipelineobj，然后将pipelineobj绑定到对应的binding point上。然后把program里面所有的stage里面的uniform等绑定点设置好。之后设置vertex process的状态，设置drawcall乱序绘制的优化，还有绘制raster的一些设置选项，例如draw的mask（font face/back face/triangles/triangle_strip等）
+
 ##### gluseprogramstages
+
+这个是opengl的特性，主要是把某个program绑定到pipeline的多个stage上面。从而复用某个管线的阶段性代码。
+
+在实现过程中，也会首先寻找是否存在这个pipeline和这个program，以及当前的pipeline是否存在geometry shader/compute/tessellation 的stage。然后依次将stage的maskbit和各个stage bit做比较，如果有某个stage则把某个program绑定到对应的pipeline object上。然后会根据不同的stage最终调用到gluseprogram。
 
 ##### glactiveshaderprogram
 
+也是opengl的特性，opengl的pipelineobject保证同一个vertex shader可以和多个fragment shader组合，减少重复，而glactiveshaderprogram这个接口就是类似glactivetexture和gluseprogram结合的意思，就是激活某个stage，然后在这个stage上调用gluseprogram。
+
+在mesa的实现里面，是先寻找pipeline object，再去寻找对应的program，然后把当前pipeline的activeprogram替换成当前寻找的program。
+
 ##### glprogrambinary
 
+入口函数_mesa_ProgramBinary，
+
+简单暴力，把当前program的shader数据清除掉，然后替换成传入的shaderbinary数据，同时计算sha1和调用对应的gluseprogram。
+
 ##### glgetuniformlocation
+
+
 
 ##### glGetActiveUniform
 
