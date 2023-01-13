@@ -1,16 +1,16 @@
 
 
-
-
 这个repo主要记录自己看到的一些知识点，防止以后忘记，都是一些概述性质的东西，建议想要系统学习知识的话，还是看相关的论文或者官方文档
 
-另外文件夹中相对完备的笔记有两个，一个是[RTR4的笔记](./RTR4/README.md)：
+另外文件夹中相对完备的笔记有四个：
 
+1. [RTR4的笔记](./RTR4/README.md)：
 
+2. [raytracing_gems的笔记](./rayTracing_gems/README.md)
 
-另一个是[raytracing_gems的笔记](./rayTracing_gems/README.md)
+3. [设计模式笔记](./Design&#32;Patterns/README.md)
 
-现在再加一个[设计模式笔记](./Design&#32;Patterns/README.md)
+4. [games104笔记](./games104笔记/README.md)
 
 **MeshShader**：  
 

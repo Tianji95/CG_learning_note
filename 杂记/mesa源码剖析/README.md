@@ -25,7 +25,7 @@ r600_buffer_subdata（以Amd r600为例）/ i915_buffer_subdata（以intel i915�
 
 所有的入口函数都是_mesa_xxxx,例如_mesa_BindBuffer、_mesa_BindBufferRange等。
 
-当前进度31/136
+当前进度43/136
 
 ### buffer（共15个接口）
 
@@ -267,39 +267,127 @@ if (obj) {
 
 入口函数_mesa_ProgramBinary，
 
-简单暴力，把当前program的shader数据清除掉，然后替换成传入的shaderbinary数据，同时计算sha1和调用对应的gluseprogram。
+简单暴力，把当前program的shader数据清除掉，然后替换成传入的shaderbinary数据，同时计算sha1和调用对应的gluseprogram。中间会验证binary是否是正确的，也会验证binary的crc值，
 
 ##### glgetuniformlocation
 
+入口在mesa\main\uniforms.c的_mesa_GetUniformLocation_impl(GLuint programObj, const GLcharARB *name, bool glthread)里面，作用是找到某个program对应某个特定uniform名称的location。
 
+具体做法就是先找到对应name 的resource，mesa维护了一套name - resource的map，然后再去根据resource找到对应的array index
 
 ##### glGetActiveUniform
 
+下面是这个接口的详细定义，其中length以后都是return的值，意思就是说只要有index和program，就能拿到这个uniform的所有信息
+
+![glGetActiveUniform](./images/glgetactiveuniform.PNG)
+
+在mesa里面，入口函数在uniform_query.cpp里面的_mesa_GetActiveUniform_impl中，
+
+仍然是先要找到对应的program资源，然后根据资源获取这个uniform的名字，长度，对应的数据类型，以及arraysize。
+
 ##### glUniform{1234}v
+
+实际上所有的gluniform*到最后都会调用到mesa\main\uniform_query.cpp中的_mesa_uniform这个接口.gluniform\*的那些接口在mesa\main\uniforms.c中都可以找到，看起来还挺整齐壮观的。
+
+因为把gluniform*都归一化到同一个入口里面了，所以mesa里面的做法其实挺复杂的，gluniform也并没有想象中的那么快，首先他要验证uniform的值是否valid，对于64bit的值，还需要做拆分，然后去将uniform值做packing，然后将packing的值通过memcpy保存到一个driver_storage里面。然后使用_mesa_flush_vertices_for_uniforms，将数据通过driver刷到GPU上。中间还有一些数据转换，例如float2half。
 
 ##### uniformBlockBinding
 
+这个函数就是把某个uniform绑定到特定program的绑定点上，入口函数也在uniforms.c里面，
+
+实现起来也含简单，mesa存了一个uniformblocks的map，直接对对应uniformindex新增一个绑定点即可，代码如下
+
+```C++
+static void uniform_block_binding(struct gl_context *ctx, struct gl_shader_program *shProg, GLuint uniformBlockIndex, GLuint uniformBlockBinding)
+{
+   if (shProg->data->UniformBlocks[uniformBlockIndex].Binding !=
+       uniformBlockBinding) {
+
+      FLUSH_VERTICES(ctx, 0, 0);
+      ctx->NewDriverState |= ST_NEW_UNIFORM_BUFFER;
+
+      shProg->data->UniformBlocks[uniformBlockIndex].Binding =
+         uniformBlockBinding;
+   }
+}
+```
+
 ##### GetSubroutineUniformLocation
 
+入口函数在mesa\main\shaderapi.c的_mesa_GetSubroutineUniformLocation。这个函数的作用就是在glsl中，支持subroutine关键字，他相当于是shader的子程序，类似函数指针。GetSubroutineUniformLocation就是获取子程序uniform的位置，结合glGetSubroutineIndex可以获取对应函数指针的位置，就可以在CPU端控制GPU调用的函数指针。这里有个例子：
+
+https://blog.csdn.net/coldkaweh/article/details/49966731
+
+在mesa的实现中，首先要判断shader、program是否valid，然后找到对应的shaderstage。然后根据shaderstage获取具体是哪种resource类型。然后走的是glGetUniformLocation的路线，先找到对应name 的resource，再去根据resource找到对应的array index
+
 ##### MemoryBarrier
+
+入口函数在mesa\main\barrier.c的memory_barrier_by_region里面。这里面实现很简单，判断barrier的类型，添加flag，然后直接调用驱动pipe里面的memory_barrier接口。以AMD为例，会调用到gallium\drivers\r600\\r600_state_common.c里面的r600_memory_barrier。这个函数只是设置了一些flag，估计到执行的时候才会有实际操作。
 
 ### query（共4个接口）
 
 ##### glGenQueries
 
+入口函数mesa\main\queryobj.c里面的create_queries，和glGenBuffers\glCreateBuffers一样，glGenQueries和glCreateQueries也类似
+
+具体的操作也是创建了一个query_object，代码如下：
+
+```
+struct gl_query_object *q = CALLOC_STRUCT(gl_query_object);
+if (q) {
+    q->Id = id;
+    q->Ready = GL_TRUE;
+    q->pq = NULL;
+    q->type = PIPE_QUERY_TYPES; /* an invalid value */
+    return q;
+}
+```
+
 ##### glBeginQuery和glBeginQueryIndexed
+
+两个都会调用到mesa\main\queryobj.c里面的_mesa_BeginQueryIndexed，不过glBeginQuery会把index设置成0。
+
+首先，mesa查找当前target query的binding point，然后回去查找是否存在当前的query object。然后将GL query type转换成gallium的query type，例如GL_ANY_SAMPLES_PASSED转换成PIPE_QUERY_OCCLUSION_PREDICATE、然后调用pipe的create_query，例如r600_create_query，之后又分为软件query和硬件query。硬件query会调用操作系统的virtual memory
 
 ##### glEndQuery和glEndQueryIndexed
 
+和glbeginquery上面相同，甚至连流程都一样
+
 ##### glGetQueryiv
+
+实际上接口是_mesa_GetQueryIndexediv，接口是
+
+| `void **glGetQueryIndexediv**(` | GLenum target,     |
+| ------------------------------- | ------------------ |
+|                                 | GLuint index,      |
+|                                 | GLenum pname,      |
+|                                 | GLint * params`)`; |
+
+params会根据传入的pname，返回对应的值，而值全都存在context里面。基本就是一个switch搞定一切
 
 ### texture（共25个接口）
 
 ##### glActiveTexture
 
+入口函数在mesa\main\texstate.c里面的active_texture，只做了一件事：
+
+```
+   ctx->Texture.CurrentUnit = texUnit;
+   if (ctx->Transform.MatrixMode == GL_TEXTURE) {
+      /* update current stack pointer */
+      ctx->CurrentStack = &ctx->TextureMatrixStack[texUnit];
+   }
+```
+
 ##### glGenTextures
 
+glCreateTextures 和glGenTextures一模一样，不像buffer是延迟申请的。
+
+入口函数在mesa\main\texobj.c里面的create_textures上，做了两件事情，一个是创建一个texture obj，这个比较简单，然后初始化这个textureobj，这一步很复杂，因为textureobj的属性太多了，包括sample的规则texture的Attrib、mipmap、layer、是否是bindless等等。但他没有调用驱动，说明是上层控制的。
+
 ##### glBindTexture
+
+bindtexture
 
 ##### glDeleteTextures
 
