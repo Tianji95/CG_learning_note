@@ -25,7 +25,7 @@ r600_buffer_subdata（以Amd r600为例）/ i915_buffer_subdata（以intel i915�
 
 所有的入口函数都是_mesa_xxxx,例如_mesa_BindBuffer、_mesa_BindBufferRange等。
 
-当前进度43/136
+当前进度61/136
 
 ### buffer（共15个接口）
 
@@ -367,6 +367,8 @@ params会根据传入的pname，返回对应的值，而值全都存在context�
 
 ### texture（共25个接口）
 
+实现文件集中在mesa\main\texobj.c、mesa\main\texstate.c、mesa\main\samplerobj.c
+
 ##### glActiveTexture
 
 入口函数在mesa\main\texstate.c里面的active_texture，只做了一件事：
@@ -387,39 +389,121 @@ glCreateTextures 和glGenTextures一模一样，不像buffer是延迟申请的�
 
 ##### glBindTexture
 
-bindtexture
+bindtexture入口函数mesa\main\texobj.c里面的_mesa_bindTexture，整体的流程和glbindbuffer类似
+
+首先调用_mesa_lookup_or_create_texture，寻找是否存在需要bind的texture，如果存在的话，直接返回要bind的texture，否则则新创建一个texture，并且也会初始化这个新建的texture，类似glGenTextures。
 
 ##### glDeleteTextures
 
+入口函数mesa\main\texobj.c里面的delete_textures，因为可以delete多个textures，所以里面首先就是一个for循环，然后依次寻找texture——lock texture —— unbind texture from  fbo —— unbind texture from texunits  —— unbind texture  from  image unit ——把texture 查找表、sampler等都删掉，把当前texture object reference 成null，因为是mesa自己实现的智能指针，所以会自动删掉。（这里总感觉会有风险）
+
 ##### glGenSamplers
+
+入口函数mesa\main\samplerobj.c里面的_mesa_GenSamplers，然后调用create_samplers，和其他的glGenxxx一样，glGenSamplers其实就是申请了一个新的sampler_boject，然后对samplerobj的所有属性做初始化，sampler的属性也比较多，包括compareMode，wrap的方式等等。
+
+因为这个接口是复数形式，所以里面也有一个for循环。在申请资源前后也需要加锁。所有申请资源的操作都需要加锁。
 
 ##### glBindSampler
 
+入口函数在mesa\main\samplerobj.c的bind_samplers，
+
+函数的实现很简单，先加锁，然后查找是否有对应的sampler obj，将当前的sampler切换成要绑定的sampler，然后解锁。
+
 ##### glSamplerParameter
+
+入口函数在mesa\main\samplerobj.c的_mesa_SamplerParameteri
+
+这个函数的作用是设置采样器参数，例如glSamplerParameter(sampler, GL_TEXTURE_WRAP_S, GL_REPEAT),
+
+实现方式就是先通过一个switch，判断中间形参pname的值，然后判断param和pname的值是否valid，然后将参数复制进去就行了。对于有mipmap的sampler，还要把对应mipmap的参数设置好。
 
 ##### glGetSamplerParameter
 
+入口函数在mesa\main\samplerobj.c的_mesa_GetSamplerParameteriv，检查参数合理性，然后返回sampler对应的参数即可，实现很简单。
+
 ##### glTexImage2D
+
+入口函数mesa\main\teximage.c里面的_mesa_TextureImage2DEXT, \_mesa_TexImage2D等，但是包括glTexImage1D/2D/3D、glTextureImage1D/2D/3DEXT、MultiTexSubImage1D/2D/3D、glCompressedTexImage1D/2D/3D等在内的所有接口，到最后都会调用到teximage里面，
+
+这个接口在实现的时候会首先判断target是不是有效的（包括pc上的gl，gles对target格式的支持都不同），然后根据texture target从context里面获取对应的texture object。如果是compressed image，则需要把compressed的数据解压转换成decompressing 的texture，这里是用CPU转换的。
+
+如果是proxytexture，则需要get对应的proxy texture，并且更新 proxy texture的属性。如果是non-proxy的texture，则需要首先拿到texture_image的object（主要是有mipmap的关系），然后把当前textureImage的数据清空掉。然后设置初始化textureImage的属性和。调用st_TexSubImage，转换成gallium的坐标系，还有转换图片的格式和数据地址，最后调用gallium的texture_subdata。（这个是最快的方法）
+
+在这个过程中，有许多检查，例如格式不匹配，格式不支持，或者获取不到格式，或者不支持NPOT的格式，他们最终都会fallback到mesa的CPU实现。
+
+在中间还会检查是否存在unpack的PBO，如果存在的话，则没有办法使用gallium的texture_subdata，则需要通过map—— memcpy——unmap的方式上传纹理数据。
+
+最最后还需要check和gen一下mipmap。
+
+整体看下来，glTexImage2D等接口实现起来非常复杂。估计效率也是十分堪忧的，和预期一致。
 
 ##### glCopyTexImage2D
 
+入口函数mesa\main\teximage.c里面的_mesa_CopyTextureImage1D/2DEXT，\_mesa_CopyTexImage1D/2D、\_mesa_CopyMultiTexImage1D/2DEXT等。
+
+以上这些接口最终都会调用到copyteximage函数里面。
+
+首先要做的仍然是格式转换，获取texture obj，然后加锁，判断是否可以避免rellocation（这个可以快20倍，主要是要保证格式一致，border一致，长宽一致），如果可以避免rellocation，则直接使用st_CopyTexSubImage，这个时候有两种实现方法，一种是硬件使用pipe的blit方法，另外一种是fallback到软件实现。最后需要check_gen_mipmap，并且unlock texture。
+
+如果需要rellocation，则首先仍然是判断格式是否符合，以及TexImage是否有proxy，如果有的话，先用proxy做一些条件上的剔除（主要是image大小的检查）。然后get texture image的obj，并且把原有数据free掉。做alloc新的TextureImageBuffer，然后再走之前的copytexsubimage。同时要检查对应的FBO之间的引用关系。
+
 ##### glTexSubImage2D
+
+和glteximage相比，gltexubimage2D直接调用st_TexSubImage，要直观很多。这里面最主要的原因是glTexSubImage2D不需要考虑是否压缩，格式也没有那么复杂。仅从mesa实现的角度来看，这个接口比glteximage要快一些。
 
 ##### glCompressedTexImage2D
 
+和glteximage一模一样，只不过里面调用了不少类似compressed_texture_error_check的函数，很多判断是单独进行的。
+
 ##### glTexImage2DMultisample
+
+入口函数mesa\main\teximage.c的_mesa_TexImage2DMultisample,
+
+首先需要检查当前硬件是否支持MSAA，不支持或者sample数量小于1的话直接就return。然后检查texture format是否支持，然后判断sample count和opengl版本，硬件支持的关系是否符合要求，然后再去获取texImage，free textureImage里面的内存，inittexImage，然后在state_tracker里面创建纹理，
+
+但是和glteximage2D不同的是，他并没有传入数据，而sample count只是teximageobj里面的一个属性，设置完以后就结束了。
 
 ##### glTexBufferRange
 
+这个接口是把一个buffer和一个texture连在一起。当然texture object一定是一个buffer texture。buffertexture是没有mipmap的，也没有filter，但是他可以允许shader使用texelFetch去访问一大块内存。
+
+入口函数也在mesa\main\teximage.c里面，是texture_buffer_range，这个入口会把glTexBuffer、glTexBufferRange、glTextureBuffer和glTextureBufferRange归纳到一起。
+
+这个接口首先也是check format，检查是否支持texture buffer，然后lock texture，然后把bufferobject和texobj attach到一起。unlock texture，对于texture object，解锁所有的sampler（因为buffertexture是没有sampler的）。结束
+
 ##### glTexParameteri
+
+入口函数mesa\main\texparam.c里面的_mesa_texture_parameteri.
+
+主要是根据pname，以及对应的target，找到对应的texobj，检查赋值是否valid，然后赋值。对于GL_TEXTURE_LOD_BIAS，则需要把所有的texture parameter都失效掉（例如把所有的sampler view失效）
 
 ##### glGetTexParameter
 
+入口函数在mesa\main\texparam.c里面的_mesa_GetTexParameteriv
+
+这个接口实现起来也很简单，直接从textureobj里面的状态获取就好了，只是获取的时候需要关注不同opengl的版本，以及opengl和gles的区别
+
 ##### glGetTexImage
+
+这个接口主要是获取texture里面pixel的数据的，
+
+入口函数_mesa_GetTexImage
+
+首先仍然是先拿到当前的texobj，然后获取texture image的大小（width、height和depth）然后根据mipmaplevel获取对应的teximage object。然后会调用state_tracker的st_GetTexSubImage，调用pipe的blit接口.blit接口是相对高效的方法，**如果有些条件不符合，例如是GL_DEPTH_STENCIL（因为有些driver对DEPTH stencil支持不好，所以干脆就走了软件blit（这里是用compute shader实现的），会慢很多）。如果再有某些条件不满足，则使用CPU做copy，效率就更低了。**
 
 ##### glEnable和glDisable
 
+入口函数在mesa\main\enable.c的_mesa_Enable里面，两者到最后都会调用到\_mesa_set_enable.
+
+和想象中的一样，这个接口实现起来基本就是对context做一个赋值操作，这个函数的代码有1000行。但是有的glenum会有额外操作，以GL_BLEND为例，如果新设置的enable状态和老的状态不一样，则需要更新vertices的状态，还需要draw out of order的状态，还有render_state的状态。也就是说，某些glEnum会影响到别的操作的地方，都需要进行更新。
+
 ##### glGenerateMipmap
+
+入口函数在mesa\main\genmipmap.c。
+
+实现起来仍然是先lock_texture，然后选择需要生成的textureimage，确保需要生成的mipmap format是valid的。并且对于compressed texture，是不允许直接生成mipmap的。最后会根据是否是cubemap，来调用state_tracker里面的st_generate_mipmap，判断硬件是否有generate_mipmap的接口，这个仍然是最快的生成方法，如果没有这个接口，则使用mesa的软件实现。这个时候就能生成compressed texture的mipmap了
+
+
 
 ##### glTextureView
 
