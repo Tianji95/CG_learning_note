@@ -27,6 +27,28 @@ r600_buffer_subdata（以Amd r600为例）/ i915_buffer_subdata（以intel i915�
 
 当前进度61/136
 
+### 几个发现：
+
+##### glrenderbuffer和gltexture的区别
+
+renderbuffer和texture的区别在于。renderbuffer支持stencil缓冲区，但是renderbuffer不能被shader直接使用，想要被使用的话只能通过fbo，fbo的wiki写的非常清楚：
+
+[https://www.khronos.org/opengl/wiki/Framebuffer_Object](https://www.khronos.org/opengl/wiki/Framebuffer_Object)
+
+##### glInvalidateSubFramebuffer其实什么都没做
+
+他的操作很简单，实际上只是检查一下参数，然后，什么都没有做！！！！！！！！对！连状态设置都没有做，只是检查了一下参数。
+
+##### glGenxxx创建的是假buffer、glCreatexxx是直接创建资源的
+
+
+
+##### 同一个接口，有硬件实现，有dma实现，也有driver的软实现，也有mesa的软实现，效率千差万别，对于经常使用的接口或者明显比较慢的接口，可以多研究一下判断条件
+
+例如mesa的glGetTexImage这个接口主要是获取texture里面pixel的数据的，，调用pipe的blit接口.blit接口是相对高效的方法，如果有些条件不符合，例如是GL_DEPTH_STENCIL（因为有些driver对DEPTH stencil支持不好，所以干脆就走了软件blit（这里是用compute shader实现的），会慢很多）。如果再有某些条件不满足，则使用CPU做copy，效率就更低了。
+
+
+
 ### buffer（共15个接口）
 
 buffer入口 src\main\mesa\bufferobj
@@ -503,63 +525,197 @@ bindtexture入口函数mesa\main\texobj.c里面的_mesa_bindTexture，整体的�
 
 实现起来仍然是先lock_texture，然后选择需要生成的textureimage，确保需要生成的mipmap format是valid的。并且对于compressed texture，是不允许直接生成mipmap的。最后会根据是否是cubemap，来调用state_tracker里面的st_generate_mipmap，判断硬件是否有generate_mipmap的接口，这个仍然是最快的生成方法，如果没有这个接口，则使用mesa的软件实现。这个时候就能生成compressed texture的mipmap了
 
-
-
 ##### glTextureView
+
+入口函数mesa\main\textureview.c里面的_mesa_TextureView
+
+注意这里的gltextureview和android的textureview是不同的概念，这里主要的作用是通过一张texture来创建一个textureview，textureview可以理解为是texture的别名，他们共享数据
+
+在mesa的实现过程中，首先寻找两个textureobj，然后检查两个textureobj的格式是否匹配，匹配的格式列表如下
+
+![gltextureview](./images/gltextureview.PNG)
+
+详细可以查看https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTextureView.xhtml
+
+然后根据现在的format去查询真正的hardware格式，格式对于硬件来说非常重要，正确的格式可以让texture的速度快几倍。然后会通过硬件查询目标texture的大小是否符合要求，如果不符合要求就会抛一个GL_ERROR出来。最后会初始化新的texture，这个初始化过程并不会调用驱动函数，而只是把每一个level，每一个face做一下初始化。最后会把pointer做一下赋值。
 
 ##### glTexStorage2D
 
+glTexStorage1D/2D/3D和gltextureStorage1D/2D/3D都会调用到同一个函数，入口函数在mesa\main\texstorage.c里面texstorage_error
+
+首先仍然是check target和format是否符合要求,然后再去查找对应的hardware format，查找长宽深度是否符合要求，然后初始化texture，申请内存，清除texture，最后update fbo 的texture。
+
+相比较gltextureImage，这个接口不需要考虑PBO，也不需要考虑compressed，也不需要考虑mipmap，实现起来相对要简单一些。但复杂度也比较高了。
+
 ##### glTexStorage2DMultisample
+
+入口函数在mesa\main\teximage.c里面的_mesa_TexStorage2DMultisample
+
+走的居然是texture_image_multisample，和textureImageMultisample一模一样
 
 ##### glInvalidateTexSubImage
 
+入口函数在mesa\main\texobj.c里面的_mesa_InvalidateTexSubImage
+
+先get  texobj和对应的teximage，然后把里面的属性都设置成0即可。没有调用驱动。非**常简单高效**
+
 ##### glBindImageTexture
+
+入口函数在mesa\main\shaderimage.c里面的_mesa_BindImageTexture，然后调用到bind_image_texture
+
+这个函数的作用是把一个level的texture绑定到一个imageunit（activetexture的那个）上。
+
+实现起来也很简单，做一些format上的检查，layer的检查，然后直接绑定就行了。
 
 ### framebuffer（共23个）
 
+常用文件mesa\main\fbobject.c
+
 ##### glGenFramebuffers
 
-##### glBindFramebuffer
+入口函数create_framebuffers
+
+申请一个gl_framebuffer的空间，然后初始化就可以了，记得加锁，代码如下
+
+```
+fb->Name = name;
+fb->RefCount = 1;
+fb->_NumColorDrawBuffers = 1;
+fb->ColorDrawBuffer[0] = GL_COLOR_ATTACHMENT0_EXT;
+fb->_ColorDrawBufferIndexes[0] = BUFFER_COLOR0;
+fb->ColorReadBuffer = GL_COLOR_ATTACHMENT0_EXT;
+fb->_ColorReadBufferIndex = BUFFER_COLOR0;
+fb->SampleLocationTable = NULL;
+fb->ProgrammableSampleLocations = 0;
+fb->SampleLocationPixelGrid = 0;
+fb->Delete = _mesa_destroy_framebuffer;
+```
+
+##### glBindFramebuffer和glbindFramebufferEXT
+
+入口函数_mesa_BindFramebuffer，调用到bind_framebuffer
+
+先检查格式。然后查找有没有想要的framebuffer，如果不存在drawfb的话，还需要创建一个framebufer，然后将context的状态切换成当前的fb。老的fb需要检查是否有framebufferattachment，如果有的话需要对每一个texture调用driver的FinishRenderTexture，告诉他们我们已经切换fb了（其实就是添加了一个dirty的标志）
+
+也要告诉driver我们新的texture是哪些
 
 ##### glFramebufferParameteri
 
-##### glBindRenderbuffer
+入口函数_mesa_FramebufferParameteri
 
-##### glGenRenderbuffers
+三部曲：检查参数合理性——获取需要改变参数的fb——参数赋值，和gltextureparameteri相比，甚至没有额外的依赖和操作
 
-##### glRenderbufferStorageMultisample
+##### glBindRenderbuffer和glBindRenderbufferEXT
+
+入口函数bind_renderbuffer，
+
+仍然是先查找renderbuffer，如果renderbuffer是假的（延迟申请）那就通过allocate在申请一个renderbuffer，最后将context上的renderbuffer状态切换成查找到或者新申请的renderbuffer。
+
+##### glGenRenderbuffers和glCreateRenderbuffer
+
+入口函数create_render_buffers，
+
+glGen是申请了一个假的buffer，延迟申请，glCreate则是立即申请一个真的buffer。当然申请前要先lock，申请后要unlock
+
+##### glRenderbufferStorageMultisample和_mesa_RenderbufferStorageMultisampleAdvancedAMD
+
+入口函数renderbuffer_storage_target
+
+renderbuffer和texture的区别在于。renderbuffer支持stencil缓冲区，但是renderbuffer不能被shader直接使用，想要被使用的话只能通过fbo，fbo的wiki写的非常清楚：
+
+[https://www.khronos.org/opengl/wiki/Framebuffer_Object](https://www.khronos.org/opengl/wiki/Framebuffer_Object)
+
+这个接口的实现，首先会将internalFormat转换成baseFormat，然后check硬件是否支持samplecount，然后将传入的数据（width，height，samplecount，format）赋值给这个renderbuffer。就完成这个接口的功能了。
 
 ##### glRenderbufferStorage
 
+同上，除了sample数是0，基本没区别
+
 ##### glGetRenderbufferParameteriv
+
+直接返回renderbuffer对应的属性
 
 ##### glGetShaderSource
 
+入口函数mesa\main\shaderapi.c
+
+首先寻找shaderobj，然后通过for循环和maxlength把shader内容一个一个拷贝出来。简单暴力
+
 ##### glFramebufferRenderbuffer
 
-##### glFramebufferTexture
+入口函数mesa\main\fbobject.c的_mesa_FramebufferRenderbuffer
 
-##### glFramebufferTexture2D
+首先根据target找到对应的gl_framebuffer的object，然后获取这个fb里面的attachment（这个attachment是传入的）后面直接用软件实现这一过程了，没有用到硬件的FramebufferRenderbuffer！很奇怪。不过软件就是把fb的attachment设置成我们想要的renderbuffer
 
-##### glDrawBuffer和glDrawBuffers
+##### glFramebufferTexture 1D/2D/3D MultisampleEXT/layer
+
+入口文件在fbobject.c，
+
+顺序大致是：\_mesa_FramebufferTextureLayer/\_mesa_FramebufferTexture/ → frame_buffer_texture → \_mesa_framebuffer_texture
+
+_mesa_FramebufferTexture1D/2D/3D{Multisample} → framebuffer_texture_with_dims → \_mesa_framebuffer_texture
+
+frame_buffer_texture主要是get framebuffer object，get texture object和framebuffer attachment，同时检查一下layer、level和target的关系，判断texture和attachment是否valid
+
+framebuffer_texture_with_dims  则只获取framebufferboject和texture，attachment的获取不会做过多的分支判断。
+
+##### glDrawBuffer、glDrawBuffersARB和glDrawBuffers
+
+入口函数_mesa_drawbuffers，
+
+首先根据传入的enum计算mask，然后根据drawbuffer的index，依次更新drawbuffer，实际只是把fb的status更新了一下，更新的内容是fb->_ColorDrawBufferIndexes[buf] 
 
 ##### glColorMask
 
+只是更新一下colormask的状态
+
 ##### glStencilMask
+
+更新context下面stencil的writemask的状态，以及newDriverState的状态。
 
 ##### glClear
 
+入口函数mesa\main\clear.c里面的_mesa_Clear
+
+glclear实际上已经算是draw的一种了，首先要判断各种mask和context state是否合理，然后获取renderbuffer、scissor以及对应的clearvalue。在获取所有状态信息以后，调用驱动的clear函数。例如r600_blit.c里面的r600_clear函数。驱动里面有很多可以加快clear的接口，例如clear_buffer接口dma_clear_buffer接口等。**仔细研究他们的条件可以提升clear的效率**
+
 ##### glClearColor
+
+只是设置一下context中color的状态
 
 ##### glInvalidateSubFramebuffer
 
+入口函数mesa\main\fbobject.c里面的_mesa_InvalidateSubFramebuffer。
+
+在拿到fb以后调用invalidate_framebuffer_storage
+
+invalidate的操作很简单，实际上只是检查一下参数，然后，什么都没有做！！！！！！！！
+
 ##### glReadPixels
+
+入口函数在mesa\main\readpix.c里面的_mesa_readpixels
+
+他会首先尝试memcpy，据说这个是最高效的，不同的attachment条件不同，例如对于Depth，就必须depthscale是1，depthbias是0，并且internal format和mesaformat一定要一致，然后通过map调用硬件能力使用memcpy。如果用不了硬件，则会根据format的类型不同走不同的map。也会用硬件能力，但是要走pack和unpack的流程，由于需要pack和unpack，所以需要额外malloc和free一个中间变量。导致速度比较慢。而且如果是color的话，还有格式转换等操作
 
 ##### glReadBuffer
 
+和glDrawbuffer一样，只是切换一个context的buffer变量而已。
+
 ##### glBlitFramebuffer
 
+入口函数mesa、main/blit.c里面的\_mesa_BlitFramebuffer
+
+首先更新readfb和drawfb的所有状态，例如绑定了哪些attachment，buffer的mask，基本上又调用了一次gldrawbuffer和readbuffer。然后要对color做clamp，获取scissor box，检查两个buffer的状态，filter，mask，sample等，依次检查color buffer的状态，stencil buffer的状态、depth buffer的状态。等所有的检查都做完，最后才会调用到do_blit_framebuffer
+
+在do_blit_framebuffer里面，如果bitmap cache里面有东西，需要draw或者flush掉，如果有readpixel cache，那也要刷掉，防止拷贝了脏数据。然后使用buffer大小和scissor来clip数据。最后输出两个buffer的clip数据。然后做坐标系变换，翻转y轴。如果是color buffer blit，则要先区分是texture还是renderbuffer，两者的resource获取方式有差别。获取到resource地址后，调用驱动的blit，来做真正的blit。depth和stencil与color的流程类似。
+
+到驱动里面又有很多操作，例如AMD会走入到gallium/drivers/r600/r600_blit.c里面的r600_blit方法，dma_copy是最快的，他需要硬件支持，并且是LINEAR的格式。对region也有要求（format要一致，长宽都相同，也没有mask和filter，也没有blending）。
+
 ##### glCopyImageSubData
+
+入口函数在mesa/main/copyimage.c里面的_mesa_CopyImageSubData
+
+
 
 ##### glClampColor
 
@@ -666,6 +822,14 @@ bindtexture入口函数mesa\main\texobj.c里面的_mesa_bindTexture，整体的�
 ##### glBlendColor
 
 
+
+### 需要深入了解的接口：
+
+##### _mesa_update_allow_draw_out_of_order
+
+##### _mesa_update_valid_to_render_state
+
+glTexImage2D
 
 # vulkan-mesa实现
 
