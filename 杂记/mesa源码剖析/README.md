@@ -29,23 +29,25 @@ r600_buffer_subdata（以Amd r600为例）/ i915_buffer_subdata（以intel i915�
 
 ### 几个发现：
 
-##### glrenderbuffer和gltexture的区别
+##### 1. glrenderbuffer和gltexture的区别
 
 renderbuffer和texture的区别在于。renderbuffer支持stencil缓冲区，但是renderbuffer不能被shader直接使用，想要被使用的话只能通过fbo，fbo的wiki写的非常清楚：
 
 [https://www.khronos.org/opengl/wiki/Framebuffer_Object](https://www.khronos.org/opengl/wiki/Framebuffer_Object)
 
-##### glInvalidateSubFramebuffer其实什么都没做
+##### 2. glInvalidateSubFramebuffer其实什么都没做
 
 他的操作很简单，实际上只是检查一下参数，然后，什么都没有做！！！！！！！！对！连状态设置都没有做，只是检查了一下参数。
 
-##### glGenxxx创建的是假buffer、glCreatexxx是直接创建资源的
+##### 3. glGenxxx创建的是假buffer、glCreatexxx是直接创建资源的
 
-
-
-##### 同一个接口，有硬件实现，有dma实现，也有driver的软实现，也有mesa的软实现，效率千差万别，对于经常使用的接口或者明显比较慢的接口，可以多研究一下判断条件
+##### 4. 同一个接口，有硬件实现，有dma实现，也有driver的软实现，也有mesa的软实现，效率千差万别，对于经常使用的接口或者明显比较慢的接口，可以多研究一下判断条件
 
 例如mesa的glGetTexImage这个接口主要是获取texture里面pixel的数据的，，调用pipe的blit接口.blit接口是相对高效的方法，如果有些条件不符合，例如是GL_DEPTH_STENCIL（因为有些driver对DEPTH stencil支持不好，所以干脆就走了软件blit（这里是用compute shader实现的），会慢很多）。如果再有某些条件不满足，则使用CPU做copy，效率就更低了。
+
+##### 5. glcopy和glblit走的是不同的逻辑，也是用的不同的驱动
+
+glcopy更多的是考虑纹理格式转换，是否压缩，长宽高。而blit则更多的考虑是否有脏数据，能不能直接拷贝，整体来看blit拥有很多优化手段，效率会更高一些。
 
 
 
@@ -715,17 +717,41 @@ invalidate的操作很简单，实际上只是检查一下参数，然后，什�
 
 入口函数在mesa/main/copyimage.c里面的_mesa_CopyImageSubData
 
-
+首先要准备目标资源，保证目标资源是没问题的，包括error checking还有相关的texture or renderbuffer是没问题的，然后再获取width，height，format。check 两个region是没问题的，format是相符合的。然后调用驱动的resource_copy_region，例如r600_resource_copy_region、注意这个和r600_blit是完全不同的接口！
 
 ##### glClampColor
+
+入口函数在mesa/main/blend.c
+
+做的事情很简单，把clamp的数据复制给context即可，只是要根据不同的target做switch
+
+这个接口的作用就是在glreadpixels的时候自行设置那些数据是否要归一化到一定范围内（0-1）
 
 ### DrawVertexArray（共16个）
 
 ##### glVertexAttrib{1234}{s f d}
 
+这个函数的入口在mesa/main/varray.c里面的_mesa_VertexAttribPointer.
+
+函数的作用就是指定之前的VAO里面的顶点属性格式，参数类型：
+
+(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *ptr)
+
+举个例子：
+
+glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, (const void\*)(0));
+
+就是顶点的位置是0， 整个顶点的数据大小是2，顶点数据类型是float，不用GPU归一化到-1到1，顶点的stride是2， 偏移量是0，
+
+在实现的时候，首先要检查VAO，ArrayBuffer以及输入参数是否valid。然后获取并更新当前vao的array信息，最后bind一下当前的vao，所有的操作都是在CPU端做，没有使用驱动的任何接口。
+
 ##### glVertexAttribFormat
 
-##### glBindVertexBuffer
+这个接口主要是修改制定vao的内容，多了一个vaobj，完整函数如下：
+
+`void glVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset);`
+
+从实现上来看，glVertexAttribFormat == bindvertexbuffer + _mesa_bind_vertex_buffer + 设置一下pointer和offset
 
 ##### glVertexAttribBinding
 
@@ -733,9 +759,33 @@ invalidate的操作很简单，实际上只是检查一下参数，然后，什�
 
 ##### glVertexBindingDivisor
 
+##### glBindVertexBuffer
+
+入口函数在mesa/main/varray.c里面的_mesa_BindVertexBuffer上，最终调用到vertex_array_vertex_buffer。
+
+主要操作就是根据当前context的vao，查找vao的bufferbinding下的bufferobject（VBO）如果查找不到就用当前传入的vbo，经过查找没问题后直接绑定找到的vbo
+
 ##### glGenVertexArrays
 
+入口函数在mesa/main/arrayobj.c里面的gen_vertex_arrays
+
+因为接口是复数形式，所以里面有个for循环，然后对于每一个vao，关键代码只有以下几行：
+
+```
+struct gl_vertex_array_object *obj = MALLOC_STRUCT(gl_vertex_array_object);
+if (obj){
+   memcpy(vao, &ctx->Array.DefaultVAOState, sizeof(*vao));
+   vao->Name = name;
+}
+```
+
 ##### glBindVertexArray
+
+入口函数在mesa/main/arrayobj.c的bind_vertex_array里面
+
+传入参数一个context，一个id
+
+实现过程就是先通过context和id找到当前的vao，为了防止drawarray指向一个unbound 并且要删除的VAO，这里需要把_EmptyVAO设置成空的防止crash，然后把context的VAO设置成找到的vao，最后更新render_state，
 
 ##### glDrawArrays
 
