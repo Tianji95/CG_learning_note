@@ -751,7 +751,17 @@ glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, (const void\*)(
 
 `void glVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset);`
 
-从实现上来看，glVertexAttribFormat == 设置一下pointer和offset
+从实现上来看，glVertexAttribFormat == 设置一下vao中attribindex下面的relativeoffset（这个offset指的是在顶点内部的offset，不算额外的offset，baseoffset由bindvertexBuffer设定）、size、normalized和type
+
+```
+   vertex_format->Type = type;
+   vertex_format->Format = format;
+   vertex_format->Size = size;
+   vertex_format->Normalized = normalized;
+   vertex_format->Integer = integer;
+   vertex_format->Doubles = doubles;
+   vertex_format->_ElementSize = _mesa_bytes_per_vertex_attrib(size, type);
+```
 
 ##### glVertexAttribBinding
 
@@ -759,14 +769,86 @@ glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, (const void\*)(
 其中attribindex 指的是属性（attribindex）的index，bindingindex指的是bindvertexbuffer的第一个bindingindex，这个接口的作用就是把属性和buffer绑定在一起
 关于这个接口的使用，可以查看[Separate_attribute_format](https://www.khronos.org/opengl/wiki/Vertex_Specification#Separate_attribute_format)
 
-从接口实现的角度来看，这个接口只是切换了一下binding的信息
+从接口实现的角度来看，这个接口只是切换了一下binding的信息，注意，在glVertexattribPointer 中attribindex和bindingindex是一样的！这里可以灵活设置。也就是说，我们可以把attribindex是2的东西绑定到bindingpoint3上（但是一般不要这么做）
+
+这个接口允许我们在不改变format的情况下切换binding的buffer。
 
 现在接口的关系是：
 glVertexattribPointer == glVertexAttribFormat + glVertexAttribBinding + glBindVertexBuffer
 
+glVertexAttribFormat用来设置顶点内部的属性，例如size、normalized、type和offset，glVertexAttribBinding 用来设置绑定到哪个vertex shader里面的绑定点上，bindVertexBuffer用来告诉vao，输入的vbo绑定到哪个绑定点上，并且设置清楚baseoffset
+
+代码如下：
+
+```
+glBindBuffer(GL_ARRAY_BUFFER, buff);
+glEnableVertexAttribArray(0);
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(baseOffset + offsetof(Vertex, position)));
+glEnableVertexAttribArray(1);
+glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(baseOffset + offsetof(Vertex, normal)));
+glEnableVertexAttribArray(2);
+glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), reinterpret_cast<void*>(baseOffset + offsetof(Vertex, color)));
+
+// 下面三个接口灵活很多，例如可以临时切换bindvertexbuffer，也可以切换format，也可以切换bingding。
+glBindVertexBuffer(0, buff, baseOffset, sizeof(Vertex));
+glEnableVertexAttribArray(0);
+glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, position));
+glVertexAttribBinding(0, 0);
+glEnableVertexAttribArray(1);
+glVertexAttribFormat(1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, normal));
+glVertexAttribBinding(1, 0);
+glEnableVertexAttribArray(2);
+glVertexAttribFormat(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(Vertex, color));
+glVertexAttribBinding(2, 0);
+```
+
 ##### glEnableVertexAttribArray和glDisableVertexAttribArray
 
+入口函数在_mesa_EnableVertexAttribArray和
+
+enable的那个attrib，是以bit的形式存在vao里面的，实现的时候只有一句话
+
+```
+vao->Enabled |= attrib_bits; \\ glEnableVertexAttribArray
+vao->Enabled &= ~attrib_bits; \\glDisableVertexAttribArray
+```
+
 ##### glVertexBindingDivisor
+
+这个函数的作用需要举一个例子
+
+```
+vertex shader:
+#version 330 core
+layout (location = 0) in vec2 position;
+layout (location = 1) in vec3 color;
+layout (location = 2) in vec2 offset;
+out vec3 fColor;
+void main()
+{
+    gl_Position = vec4(position + offset, 0.0f, 1.0f);
+    fColor = color;
+}
+
+opengl:
+GLuint instanceVBO;
+glGenBuffers(1, &instanceVBO);
+glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * 100, &translations[0], GL_STATIC_DRAW);
+glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+glEnableVertexAttribArray(2);
+glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
+glBindBuffer(GL_ARRAY_BUFFER, 0);
+glVertexAttribDivisor(2, 1);
+```
+
+glVertexAttribDivisor就是说，对于bindingpoint 2这个点，我们使用instance的用法，并且每绘制一次，offset的instance都要更新内容，如果是2的话，则每两个instance才能更新内容
+
+在mesa的实现中，入口函数在mesa/main/varray.c的vertex_binding_divisor里面
+
+他只是把binding index对应的的instanceDivisor 更新成了新的divisor。
 
 ##### glBindVertexBuffer
 
@@ -797,6 +879,16 @@ if (obj){
 实现过程就是先通过context和id找到当前的vao，为了防止drawarray指向一个unbound 并且要删除的VAO，这里需要把_EmptyVAO设置成空的防止crash，然后把context的VAO设置成找到的vao，最后更新render_state，
 
 ##### glDrawArrays
+
+入口函数mesa/main/draw.c里面的_mesa_DrawArrays
+
+首先针对VAO做更新，保证VAO里面的内容是完备的，对于驱动来说是没有遗漏的。这一步和驱动解耦，是纯上层的操作。
+
+然后判断是否有new_state，包括新的framebuffer，新的texture，新的modelview，新的const，新的program，新的texture_state等。如果有的话，所有的信息都要更新一下，例如我们发现我们的texture是新的，那么对应的program的状态，textureunit的状态，fragment的状态都要更新。这一部分非常重
+
+然后再去判断这次绘制是否valid，包括prim_mode（是否小于0或者大于32，mask是否在预期之外）
+
+最后调用驱动的DrawGallium绘制，这个时候会调用到mesa/state_tracker/st_draw.c里面的st_draw_gallium，这里面有两个步骤，一个步骤是prepare_draw，具体做法就是更新驱动所需的参数，然后调用set_context_param，之后调用驱动的draw_vbo， 例如例如AMD是r600_draw_vbo，并且传入所需的参数
 
 ##### glDrawElementsInstancedBaseVertexBaseInstace
 
