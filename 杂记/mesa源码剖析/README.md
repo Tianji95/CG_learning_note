@@ -751,7 +751,7 @@ glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, (const void\*)(
 
 `void glVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset);`
 
-从实现上来看，glVertexAttribFormat == bindvertexbuffer + _mesa_bind_vertex_buffer + 设置一下pointer和offset
+从实现上来看，glVertexAttribFormat == 设置一下pointer和offset
 
 ##### glVertexAttribBinding
 
@@ -759,6 +759,10 @@ glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, (const void\*)(
 其中attribindex 指的是属性（attribindex）的index，bindingindex指的是bindvertexbuffer的第一个bindingindex，这个接口的作用就是把属性和buffer绑定在一起
 关于这个接口的使用，可以查看[Separate_attribute_format](https://www.khronos.org/opengl/wiki/Vertex_Specification#Separate_attribute_format)
 
+从接口实现的角度来看，这个接口只是切换了一下binding的信息
+
+现在接口的关系是：
+glVertexattribPointer == glVertexAttribFormat + glVertexAttribBinding + glBindVertexBuffer
 
 ##### glEnableVertexAttribArray和glDisableVertexAttribArray
 
