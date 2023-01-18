@@ -25,7 +25,7 @@ r600_buffer_subdata（以Amd r600为例）/ i915_buffer_subdata（以intel i915�
 
 所有的入口函数都是_mesa_xxxx,例如_mesa_BindBuffer、_mesa_BindBufferRange等。
 
-当前进度61/136
+当前进度98/136
 
 ### 几个发现：
 
