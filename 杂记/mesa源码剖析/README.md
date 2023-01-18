@@ -755,6 +755,11 @@ glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, (const void\*)(
 
 ##### glVertexAttribBinding
 
+接口void glVertexAttribBinding(GLuint attribindex, GLuint bindingindex)
+其中attribindex 指的是属性（attribindex）的index，bindingindex指的是bindvertexbuffer的第一个bindingindex，这个接口的作用就是把属性和buffer绑定在一起
+关于这个接口的使用，可以查看[Separate_attribute_format](https://www.khronos.org/opengl/wiki/Vertex_Specification#Separate_attribute_format)
+
+
 ##### glEnableVertexAttribArray和glDisableVertexAttribArray
 
 ##### glVertexBindingDivisor
