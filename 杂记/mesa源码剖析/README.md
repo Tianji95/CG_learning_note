@@ -49,7 +49,16 @@ renderbuffer和texture的区别在于。renderbuffer支持stencil缓冲区，但
 
 glcopy更多的是考虑纹理格式转换，是否压缩，长宽高。而blit则更多的考虑是否有脏数据，能不能直接拷贝，整体来看blit拥有很多优化手段，效率会更高一些。
 
+##### 6. bindFramebuffer和bindTexture如果找不到的话会自动创建一个
 
+
+##### 7. 几个draw之间的区别，DrawGallium和draw_vbo、u_vbuf_draw_vbo的区别
+
+##### 8. 顶点的vertexattribPoint、VertexAttribFormat等的区别和联系
+
+##### 9. copybuffer和blit在底层的区别和联系。
+
+##### 10. dispatch compute在驱动里面的详细实现。
 
 ### buffer（共15个接口）
 
@@ -890,43 +899,134 @@ if (obj){
 
 最后调用驱动的DrawGallium绘制，这个时候会调用到mesa/state_tracker/st_draw.c里面的st_draw_gallium，这里面有两个步骤，一个步骤是prepare_draw，具体做法就是更新驱动所需的参数，然后调用set_context_param，之后调用驱动的draw_vbo， 例如例如AMD是r600_draw_vbo，并且传入所需的参数
 
-##### glDrawElementsInstancedBaseVertexBaseInstace
+##### glDrawElementsInstancedBaseVertexBaseInstace、glDrawElements、glDrawElementsInstanced、glDrawElementsInstancedBaseVertex、glDrawElementsInstancedBaseInstance
+
+接口完整描述：
+void glDrawElementsInstancedBaseVertexBaseInstance(GLenum mode,
+ 	GLsizei count,
+ 	GLenum type,
+ 	void *indices,
+ 	GLsizei instancecount,
+ 	GLint basevertex,
+ 	GLuint baseinstance);
+接口的baseVertex指的是真正绘制的时候，每一个indices需要加上的数量，baseinstance则是指的是shader里面的glInstanceID需要加上的数量，真正的glInstanceID其实是 (glInstanceID / divisor) + baseInstance
+
+除了glDrawElementsIndirect以外，gldrawelementsXXX的所有函数走的都是一样的接口，到最后都会在更新vao、update state、验证参数有效性后走到_mesa_Validated_drawrangelements里面。
+
+_mesa_Validated_drawrangelements和drawarray类似，也是将所有的参数打包到pipe_draw_info里面，然后将整个参数通过调用驱动的DrawGallium传递，这个时候会调用到mesa/state_tracker/st_draw.c里面的st_draw_gallium，这里面有两个步骤，一个步骤是prepare_draw，具体做法就是更新驱动所需的参数，然后调用set_context_param，之后调用驱动的draw_vbo， 例如例如AMD是r600_draw_vbo，并且传入所需的参数
 
 ##### glDrawArraysIndirect
 
+drawIndirect在最后一个参数indirect是null的时候会回退到drawArraysInstancedBaseInstance，剩下的也会是set_draw_vao，update_state，validate 参数，只是在draw的时候，会调用st_indirect_draw_vbo
+st_indirect_draw_vbo有几个步骤：
+1. prepare_draw：flush bitmap cache， 验证各项绘制的state，将context的参数传递给driver，传递的过程中会判断CPU L3 cache，
+2. 设置本次draw的info，包括indexSize，instance_count，buffer和offset
+3. 调用cso_draw_vbo，主要是录制indirect的内容，设置vertex buffer的内容，检查command里面的draw的信息是否有问题，并且将indirect的buffer通过map的方式传递给驱动，然后调用驱动的draw_vbo
+
+
 ##### glMultiDrawArrays
+
+这个接口和前面的接口差不多，只是在draw信息里面，作为一个array传递下去。三个步骤分别为set_draw_vao、update_state，检查参数valid，最后调用DrawGallium，传入的参数是一个array。
 
 ##### glDrawRangeElementsBaseVertex
 
+这个函数的作用是在drawelement的基础上指定start indices和end indices。其他和drawelement一样。只不过调用_mesa_validated_drawrangeelements的时候start和end不是0和~0了，而是start和end。
+
 ##### glMultiDrawElementsIndirect
+
+1. set_draw_vao
+2. update_state
+3. valid drawelements valid_draw_indirect_multi
+4. 一个for循环，根据primcount的数量调用driver的DrawGallium
+5. 调用indirect_draw_vbo，里面会调用prepare_draw、cso_draw_cbo，然后调用驱动的draw_vbo。
 
 ##### glDispatchCompute
 
+入口函数在mesa/main/compute.c里面的_mesa_DispatchCompute里面
+做了几件事情。
+1. 检查输入参数的合法性，
+2. 拿到当前context记录的compute shader program
+3. 调用prepare_compute,包括flush bitmap cache，update_state，validate state等
+3. 调用driver的launch_drid，同时把输入参数传递下去。AMD的驱动不再是r600_xxxx了，是evergreen_launch_grid
+
 ##### glDispatchComputeIndirect
+
+和上面dispatch_compute基本一样，但是1-2之间多了一个步骤，传入驱动参数pipe_grid_info时，多传递了两个变量，一个是indirect的指针，一个是indirect的buffer。
 
 ### VertexAttribute（共5个）
 
 ##### glGetActiveAttrib
 
+入口函数在mesa/main/shader_query.cpp里面的_mesa_GetActiveAttrib，
+1. 先找shader，判断shader的状态是否合法
+2. 根据输入的index和program找到program_resource
+3. 获取shader的信息，然后根据输入的数据获取需要的type
+
 ##### glGetAttribLocation
+
+入口函数在mesa/main/shader_query.cpp里面的_mesa_GetAttribLocation
+1. 先找shader，获取resource
+2. 根据name获取对应的location
 
 ##### glBindAttribLocation
 
-##### glValidProgram
+入口函数在mesa/main/shader_query.cpp里面的_mesa_BindAttribLocation
+
+仍然是一上来就寻找shader program，shader program里面有一个AttributeBindings的属性变量，里面存着的是所有attribute对应的name和值。name是key
+
+##### glValidateProgram
+
+主要是判断program是否有 两个不同typesampler 指向同一个texture unit，或者sampler和texture unit格式不一样，或者activetexture的数量超出了限制，
 
 ##### glPatchParameterfv
 
-### Transform Feedback（共9个）
+入口函数在mesa/main/shaderapi.c里面的_mesa_PatchParameterfv
+主要是tessellation用到的，将value拷贝到context里面的tessctrlprogram里面。
 
+### Transform Feedback（共9个）
+transform feedback主要是在GS或者VS以后，把经过处理的数据存到一个特殊的缓存里面，叫做transform feedback buffer，然后再决定是否做光栅化。或者在下一帧中作为顶点缓存使用，或者取出来。
+正确的使用方法是：
+glGenTransformFeedbacks —— bindbuffer —— glTransformFeedbackVaryings —— glBindTransformFeedback —— glBeginTransformFeedback —— glDrawTransformFeedback —— glEndTransformFeedback —— glGetTransformFeedbackVarying
 ##### glTransformFeedbackVaryings
+
+这个函数的作用是指定shader里面几个value的位置，即对应的location位置。
+代码入口在mesa/main/transformfeedback.c的_mesa_TransformFeedbackVaryings
+首先仍然是寻找对应的shader program，检查输入参数是否有shader关键字，有的话需要抛出error
+然后shaderprogram里面维护了一个map，key是value的值（或者说是位置），value是名字的string。
 
 ##### glGetTransformFeedbackVarying
 
+这个函数的作用是获取shader里面对应位置变量的name、type和size，和上面glTransformFeedbackVaryings反过来。
+实现过程中，仍然是先获取shader program，然后根据输入的index获取gl_program_resources，然后去获取这个变量的name、size和type
+
 ##### glGenTransformFeedbacks
+
+入口函数在mesa/main/transformfeedback.c的_mesa_GenTransformFeedbacks
+和其他的GenXXX和CreateXXX一样，但是gen在这里面没有创建假的，两者都实实在在创建了一个object
+关键代码只有下面几行
+
+```
+struct gl_transform_feedback_object* obj;
+obj = CALLOC_STRUCT(gl_transform_feedback_object)
+obj->Name = name;
+obj->RefCount = 1;
+obj->EverBound = GL_FALSE;
+```
 
 ##### glBindTransformFeedback
 
+查找之前Gen的gl_transform_feedback_object，然后把它绑定到context上。
+
 ##### glBeginTransformFeedback
+
+入口函数在mesa/main/transformfeedback.c的_mesa_BeginTransformFeedback，代码相对比较复杂。
+
+1. 首先获取当前context上的transform obj、program还有gl_transform_feedback_info、当前的绘制模式（GL_LINE、GL_POINT、GL_TRIANGLES）
+2. 计算transform feedback buffer的大小（buffer从哪里来？？）
+3. 将现在的参数转换陈gallium的格式
+4. 调用驱动的create_stream_output_target
+5. 调用驱动的set_stream_output_target，
+
 
 ##### glEndTransformFeedback
 
