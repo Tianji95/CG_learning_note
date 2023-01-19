@@ -986,7 +986,8 @@ st_indirect_draw_vbo有几个步骤：
 ### Transform Feedback（共9个）
 transform feedback主要是在GS或者VS以后，把经过处理的数据存到一个特殊的缓存里面，叫做transform feedback buffer，然后再决定是否做光栅化。或者在下一帧中作为顶点缓存使用，或者取出来。
 正确的使用方法是：
-glGenTransformFeedbacks —— bindbuffer —— glTransformFeedbackVaryings —— glBindTransformFeedback —— glBeginTransformFeedback —— glDrawTransformFeedback —— glEndTransformFeedback —— glGetTransformFeedbackVarying
+glGenTransformFeedbacks —— (glCreateProgram —— glAttachShader ——glTransformFeedbackVaryings ——glLinkProgram ) —— glBindTransformFeedback _bindbufferbase(target选择GL_TRANSFORM_FEEDBACK_BUFFER，然后buffer是正常的buffer) —— glBeginTransformFeedback —— glDrawTransformFeedback —— glEndTransformFeedback —— glGetTransformFeedbackVarying
+
 ##### glTransformFeedbackVaryings
 
 这个函数的作用是指定shader里面几个value的位置，即对应的location位置。
@@ -1027,12 +1028,28 @@ obj->EverBound = GL_FALSE;
 4. 调用驱动的create_stream_output_target
 5. 调用驱动的set_stream_output_target，
 
-
 ##### glEndTransformFeedback
+
+入口函数在mesa/main/transformfeedback.c的_mesa_EndTransformFeedback
+
+1. 调用驱动函数set_stream_output_targets，把他设置成nullptr，
+2. 把program设置成nullptr
+3. update render state。
+4. 
 
 ##### glPauseTransformFeedback
 
+调用驱动函数set_stream_output_targets，把他设置成nullptr，
+
+将gl_transform_feedback_object里面的Paused设置成True,
+
+其他的一点都不改变
+
 ##### glDrawTransformFeedback
+
+入口函数在mesa/main/draw.c里面的_mesa_DrawTransformFeedback
+
+首先仍然是查找当前context下绑定的transform feedback object
 
 ##### glDrawTransformFeedbackStreamInstanced
 
