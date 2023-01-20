@@ -25,8 +25,6 @@ r600_buffer_subdata（以Amd r600为例）/ i915_buffer_subdata（以intel i915�
 
 所有的入口函数都是_mesa_xxxx,例如_mesa_BindBuffer、_mesa_BindBufferRange等。
 
-当前进度98/136
-
 ### 几个发现：
 
 ##### 1. glrenderbuffer和gltexture的区别
@@ -1216,9 +1214,8 @@ for (buf = 0; buf < numBuffers; buf++) {
 
 ##### glBlendFuncSaparate
 
-和上面那个功能一样，只不过方式有所不同
-
-关键代码：
+glBlendFuncSaparate主要是设置blend的混合银子，例如ONE_MINUS_SRC_COLOR，而glblendEquation则是设置了混合的方程，例如R = min（Ra, Rb）
+和上面那个类似，关键代码：
 ```
 for(unsigned buf = 0; buf < numBuffers; buf++) {
     ctx->Color.Blend[buf].SrcRGB = sFactorRGB;
