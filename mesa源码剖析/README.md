@@ -60,6 +60,12 @@ glcopy更多的是考虑纹理格式转换，是否压缩，长宽高。而blit�
 
 ##### 10. dispatch compute在驱动里面的详细实现。
 
+##### 11.drawtransformfeedback本身并没有指定transform的状态，所有的状态都是在begin的时候设置的
+
+##### 12. transform在驱动层的接口基本都是streamXXX，原因应该是DX首先提出的Stream Output新特性
+
+##### 13. mesa的很多代码，特别是有GL_ENUM的代码都是用switch-case实现的，可以使用map的方式提升一丢丢效率
+
 ### buffer（共15个接口）
 
 buffer入口 src\main\mesa\bufferobj
@@ -1023,10 +1029,11 @@ obj->EverBound = GL_FALSE;
 入口函数在mesa/main/transformfeedback.c的_mesa_BeginTransformFeedback，代码相对比较复杂。
 
 1. 首先获取当前context上的transform obj、program还有gl_transform_feedback_info、当前的绘制模式（GL_LINE、GL_POINT、GL_TRIANGLES）
-2. 计算transform feedback buffer的大小（buffer从哪里来？？）
+2. 计算transform feedback buffer的大小（buffer从bindbufferbase的时候设置）
 3. 将现在的参数转换陈gallium的格式
 4. 调用驱动的create_stream_output_target
-5. 调用驱动的set_stream_output_target，
+5. 调用驱动的set_stream_output_target，将transformfeedback的状态传下去
+到驱动层面，已经没有transformfeedback的字眼了，基本就是streamXXX,DX有一个特性叫做Stream Output，估计名字是从这里来的。
 
 ##### glEndTransformFeedback
 
@@ -1049,47 +1056,180 @@ obj->EverBound = GL_FALSE;
 
 入口函数在mesa/main/draw.c里面的_mesa_DrawTransformFeedback
 
-首先仍然是查找当前context下绑定的transform feedback object
+1. 首先仍然是查找当前context下绑定的transform feedback object
+2. set_draw_vao
+3. update_state
+4. validate_drawtransformfeedback
+5. prepare draw：主要是更新参数，调用驱动的set_context_param
+6. 调用驱动的draw_vbo来绘制。
+
+注意，这里基本上和普通的draw一样，但是因为我们之前调用了beginTransformFeedback，所以才会走transformfeedback
 
 ##### glDrawTransformFeedbackStreamInstanced
+
+这是一个扩展接口 ARB_transform_feedback3
+和glDrawTransformFeedback、glDrawTransformFeedbackStream、glDrawTransformFeedbackInstanced走的路径一样
+但是传参不一样
+glDrawTransformFeedback传入的参数，stream是0，numinstanced是1
+glDrawTransformFeedbackStream传入的stream是用户输入，numinstance是1
+glDrawTransformFeedbackInstanced传入的stream是0，numinstance是用户输入的primcount
+glDrawTransformFeedbackStreamInstanced传入的stream和numinstance均为用户输入
+在底层实现中，num_instances是作为参数传给驱动，stream则是要保证一个geometry program可以emit不同的顶点到不同的vertex stream里面，这个参数就允许我们在同一个geometry program里面选择不同的stream生成。当stream启用的时候，拓扑必须是POINTS。因此在实现的时候，实际上stream就是数组的一个index。有选择不同的stream的功能
 
 ### Rasterization(共17个)
 
 ##### glProvokingVertex
 
+这个接口的作用就是指定图元中的一个点作为整个图元平面着色的数据源，例如选择第一个顶点作为整个三角形着色的所有像素点的颜色（没有渐变了）。
+
+mesa的入口函数是mesa/main/light.c里面的_mesa_ProvokingVertex
+在实现过程中，只需要将context的provokingVertex设置一下即可
+
+```
+cnt->Light.ProvokingVertex = mode;
+```
+
 ##### glGetMultisamplefv
+
+这个接口返回多重采样的位置值，
+入口函数在mesa/main/multisample.c里面的_mesa_GetMultisamplefv
+pname有两个值，所以在实现的时候有一个switch
+如果是GL_SAMPLE_POSITION，则需要调用驱动的get_sample_position来获取具体的位置
+如果是GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB，则mesa本身记录了一个位置值，这个值应该是之前用户调用glFramebufferSampleLocationsfvARB设置的。
 
 ##### glMinSampleShading
 
+对于MSAA，可以设置不同的采样率，例如8xMSAA、4xMSAA，而这个接口则是设置采样率的，输入是一个float，**当这个值是1时，表示每一个像素点都要渲染满MSAA的subpixel个数。当这个数是0时，可以理解为允许opengl在这个像素点中只渲染一次，不用考虑多个sample，而其他值则表示，必须比这个比例的sample数量大。**
+
+这个接口的入口函数在mesa/main/multisample.c
+实现就是更新context下面的MinSampleShadingValue
+```
+    ctx->Multisample.MinSampleShadingValue = value;
+```
 ##### glPointSize
+
+指定point的大小，直接返回context里面的记录值即可
 
 ##### glPointParameter
 
+这个是改变point参数的接口，pname可以是GL_POINT_SPRITE_COORE_ORIGIN，他可以改变y的方向，例如从上到下是0-1还是从下到上是0-1
+也可以是GL_POINT_FASE_THRESHOLD_SIZE，表示范走样的形式。
+入口函数在mesa/main/points.c的_mesa_PointParameter
+实现起来，一个switch，然后根据输入接口的pname改变context里面保存的内容
+
 ##### glFrontFace
+
+也只是更新了一下参数,到底是GL_CW还是GL_CCW，只支持这俩参数，否则会报错
+
+```
+ctx->Polygon.FrontFace = mode
+```
 
 ##### glCullFace
 
+只是更新了一下参数，只有GL_FRONT、GL_BACK和GL_FRONT_AND_BACK三个选择，否则会报错
+```
+ctx->polygon.CullFaceMode = mode
+```
 ##### glPolygonMode
+
+同时设置绘制拓扑和面的绘制，拓扑可以选择GL_POINT、GL_LINE和GL_FILL
+面的绘制可以选择GL_FRONT、GL_FRONT_AND_BACK、GL_BACK三种，关键代码有这么几行：
+```
+mode值是拓扑结构的几个值。
+case GL_FRONT: ctx->Polygon.FrontMode = mode; break;
+case GL_FRONT_AND_BACK: ctx->Polygon.FrontMode = mode; ctx->Polygon.BackMode = mode; break;
+cast GL_BACK: ctx->Polygon.BackMode = mode; break;
+
+```
 
 ##### glPolygonOffset
 
+接口的作用是设置深度偏移来解决z-fighting问题的，输入两个参数每一个是factor，一个是unit，
+设置后的深度偏移量计算公式是 offset = DZ \* factor + r\*units，
+
+在代码的视线中，基本是这样的：
+
+```
+ctx->NewDriverState |= ST_NEW_RASTERIZER;
+ctx->Polygon.OffsetFactor = factor;
+ctx->Polygon.OffsetUnits = units;
+ctx->Polygon.OffsetClamp = clamp;
+```
+
 ##### glPixelStore
+
+入口函数在mesa/main/pixelstore.c里面的_mesa_PixelStoref
+用来设置像素在存储空间中的布局方式，例如打包参数、解包参数，举个例子，加入输入使用GL_PACK_SWAP_BYTES，那么存储空间的解析方式就会反向（类似大端小端）
+在实现过程中也仍然是通过switch-case实现的，感觉用map的方式效率会更高一些。
 
 ##### glScissorIndexed
 
+类似glScissor，只不过这里面是设置ScissorArray的x、y、width和height，入参有一个index,搜了一下，感觉是预留接口，基本没什么地方用得到。
+本质代码如下：
+
+```
+cnt->Scissor.ScissorArray[idx].x = x;
+```
 ##### glStencilFunc
+也只是在context下面设置三个值，分别是func（GL_ALWAYS、GL_LESS等）、ref（参考值，0到pow(2,n)-1之间）、mask（在对哪些部分做test）
+实现的代码也很直接
+```
+ctx->Stencil.Function[face] = face;
+ctx->Stencil.ValueMask[face] = mask;
+ctx->Stencil.Ref[face] = ref;
+```
 
 ##### glStencilOp
 
+这个接口主要控制模板测试要采取的动作，完整接口如下：
+void glStencilOp(GLenum sfail, GLenum dpFail, GLenum dppass)
+其中sfail 是 如果模板测试失败将采取的动作
+dpfail 是如果模板测试通过但是深度测试失败才做的动作
+dppass是如果模板测试和深度测试都通过要采取的动作
+值为GL_KEEP（保持现有的模板值）、GL_ZERO（将值都设置成0）等
+
+mesa的代码实现也十分直接：
+```
+ctx->Stencil.ZFailFunc[face] = zfail;
+ctx->Stencil.ZPassFunc[face] = zpass;
+ctx->Stencil.FailFunc[face] = fail;
+```
+
 ##### glDepthFunc
+
+也只是个赋值，没什么特殊的，选项和glStencilFunc都差不多
 
 ##### glBlendEquationSaparate
 
+这个接口的作用是分别设置alpha和RGB的blend 方式，
+
+入口函数在mesa/main/blend.c里面的_mesa_BlendEquationSeparate
+
+关键函数如下：
+```
+for (buf = 0; buf < numBuffers; buf++) {
+    ctx->Color.Blend[buf].EquationRGB = modeRGB;
+    ctx->Color.Blend[buf].EquationA = modeA;
+}
+```
+
 ##### glBlendFuncSaparate
 
+和上面那个功能一样，只不过方式有所不同
+
+关键代码：
+```
+for(unsigned buf = 0; buf < numBuffers; buf++) {
+    ctx->Color.Blend[buf].SrcRGB = sFactorRGB;
+    ctx->Color.Blend[buf].DstRGB = dFactorRGB;
+    ctx->Color.Blend[buf].SrcA = sFactorA;
+    ctx->Color.Blend[buf].DstA = dFactorA;
+}
+```
 ##### glBlendColor
 
-
+直接设置blendcolor，没什么特殊的。
 
 ### 需要深入了解的接口：
 
