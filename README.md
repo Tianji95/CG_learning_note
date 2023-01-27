@@ -158,7 +158,7 @@ glossy下和diffuse下唯一不同的一点是BRDF不再是一个常数了，而
 **RSM（reflection shadow map）**
 
 ```
-把每一个shadow map上的像素都当成次级光源，并且把所有的反射物（次级光源当成diffuse的），然后用这些次级光源照亮shading point.当然shadowmap上需要存一些每个点的世界坐标，用来判断和shading point的距离。
+把每一个shadow map上的像素都当成次级光源，并且把所有的反射物（次级光源当成diffuse的），然后用这些次级光源照亮shading point.当然shadowmap上需要存一些每个点的世界坐标，用来判断和shading point的距离。也可以把shading point 放到shadowmap里面，然后再去再shadowmap里面采样次级光源
 这样其实就很简单了，查找所有shadowmap上距离shading point比较近的点，然后乘一个常数（diffuse）再做积分。把Visibility忽略掉，就得到了下图中白色的式子。每一个shading point直接就可以算出来颜色。
 RSM和VPL的思想很相近。
 缺点：漏光、没有可见性检测，认为每一个次级光源都是diffuse的，
@@ -189,7 +189,7 @@ RSM和VPL的思想很相近。
 把场景分割成体素，组成层次结构，次级光源是体素而不是像素。
 1. 决定了哪些voxel里面有次级光源，每一个voxel里面记录一个输入光照的分布，一个法线分布，每个hierarchy层都要更新
 2. 在渲染的时候，我们从camera发射多条光线，对于任意一个pixel，我们知道camera ray的方向，还知道这个pixel的材质和法线，那么就能得到出射光线的cone，我们根据hierarchy的体素信息，把圆锥往前步进，收集所有次级光源对这个方向上的影响。最后渲染到shading point上。
-缺点：开销太大，动态物体每帧都要体素花，开销太大
+缺点：开销太大，动态物体每帧都要体素化，开销太大
 优点：质量好
 参考文献：https://sites.cs.ucsb.edu/~lingqi/teaching/games202.html
 ```
