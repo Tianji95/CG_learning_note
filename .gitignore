@@ -1,0 +1,5 @@
+*.exe
+*.pdb
+*.tlog
+*/Debug/*
+.vs/*
