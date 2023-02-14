@@ -2,4 +2,12 @@
 *.pdb
 *.tlog
 */Debug/*
-.vs/*
+*/.vs/*
+*.idb
+*.log
+*.obj
+*.ilk
+*.recipe
+*.ipch
+*.db
+*.suo
