@@ -5,7 +5,7 @@
 class AbstructFactory {
 public:
 	AbstructFactory(){}
-	~AbstructFactory()
+	virtual ~AbstructFactory()
 	{
 	}
 private:

@@ -23,5 +23,32 @@
     <ClInclude Include="AbstructFactory.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Room.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RoomFactory.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="BoomRoom.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HealRoom.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Door.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="BoomDoor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HealDoor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DoorFactory.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ComponentFactoryProducer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

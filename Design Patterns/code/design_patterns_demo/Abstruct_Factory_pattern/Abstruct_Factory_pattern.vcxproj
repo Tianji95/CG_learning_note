@@ -143,6 +143,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AbstructFactory.h" />
+    <ClInclude Include="BoomDoor.h" />
+    <ClInclude Include="BoomRoom.h" />
+    <ClInclude Include="ComponentFactoryProducer.h" />
+    <ClInclude Include="Door.h" />
+    <ClInclude Include="DoorFactory.h" />
+    <ClInclude Include="HealDoor.h" />
+    <ClInclude Include="HealRoom.h" />
+    <ClInclude Include="RoomFactory.h" />
+    <ClInclude Include="Room.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
