@@ -4,10 +4,14 @@
 #include "Room.h"
 class BoomRoom : public Room {
 public:
-	BoomRoom() {}
+	BoomRoom() {
+	}
 	virtual ~BoomRoom()
 	{
 
+	}
+	virtual void SetSize(int size) {
+		std::cout << "set BoomRoom size " << size << std::endl;
 	}
 private:
 };

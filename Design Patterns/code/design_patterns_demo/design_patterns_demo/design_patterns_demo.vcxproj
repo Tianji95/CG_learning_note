@@ -24,6 +24,7 @@
     <ProjectGuid>{6f91ebe7-9dea-4dd3-b93d-04a610885863}</ProjectGuid>
     <RootNamespace>designpatternsdemo</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>adapter</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

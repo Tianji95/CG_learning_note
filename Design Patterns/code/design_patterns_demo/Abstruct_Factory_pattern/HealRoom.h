@@ -10,6 +10,9 @@ public:
 	{
 
 	}
+	virtual void SetSize(int size) {
+		std::cout << "set HealRoom size " << size << std::endl;
+	}
 private:
 };
 #endif // !HEAL_ROOM_H

@@ -26,7 +26,7 @@
     <ClInclude Include="Room.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="RoomFactory.h">
+    <ClInclude Include="BoomFactory.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="BoomRoom.h">
@@ -44,10 +44,19 @@
     <ClInclude Include="HealDoor.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="DoorFactory.h">
+    <ClInclude Include="HealFactory.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="ComponentFactoryProducer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MagicFactory.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MagicDoor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MagicRoom.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

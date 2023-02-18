@@ -7,6 +7,9 @@ class BoomDoor : public Door
 public:
 	BoomDoor() {}
 	virtual ~BoomDoor() {	}
+	virtual void SetSize(int size) {
+		std::cout << "set BoomDoor size " << size << std::endl;
+	}
 private:
 };
 

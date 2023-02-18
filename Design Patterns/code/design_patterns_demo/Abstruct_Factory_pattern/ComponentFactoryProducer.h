@@ -2,20 +2,24 @@
 #ifndef COMPONENT_FACTORY_PRODUCER_H
 #define COMPONENT_FACTORY_PRODUCER_H
 #include <string>
-#include "RoomFactory.h"
-#include "DoorFactory.h"
+#include "BoomFactory.h"
+#include "HealFactory.h"
+#include "MagicFactory.h"
 class ComponentFactoryProducer {
 public:
 	ComponentFactoryProducer() {}
 	virtual ~ComponentFactoryProducer() {}
-	AbstructFactory* GetFactory(std::string& type) {
-		if (type == "Door")
+	AbstructFactory* GetFactory(std::string type) {
+		if (type == "Boom")
 		{
-			return new DoorFactory();
+			return new BoomFactory();
 		}
-		else if (type == "Room")
+		else if (type == "Heal")
 		{
-			return new RoomFactory();
+			return new HealFactory();
+		}
+		else if (type == "Magic") {
+			return new MagicFactory();
 		}
 	}
 };
