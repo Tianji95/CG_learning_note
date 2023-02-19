@@ -15,21 +15,24 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="test_flyweight_pattern.cpp">
+    <ClCompile Include="test_responsibility_chain_pattern.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Glyph.h">
+    <ClInclude Include="Handler.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GlyphContext.h">
+    <ClInclude Include="Button.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Font.h">
+    <ClInclude Include="Request.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GlyphFactory.h">
+    <ClInclude Include="Dialog.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HelpMessageHandler.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

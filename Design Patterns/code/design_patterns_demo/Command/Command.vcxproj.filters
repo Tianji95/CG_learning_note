@@ -15,21 +15,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="test_flyweight_pattern.cpp">
+    <ClCompile Include="test_command_pattern.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Glyph.h">
+    <ClInclude Include="Command.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GlyphContext.h">
+    <ClInclude Include="OpenCommand.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Font.h">
+    <ClInclude Include="PasteCommand.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GlyphFactory.h">
+    <ClInclude Include="SimpleCommonCommand.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

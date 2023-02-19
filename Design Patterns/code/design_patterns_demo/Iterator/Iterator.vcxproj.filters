@@ -15,22 +15,19 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="test_flyweight_pattern.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
+    <ClInclude Include="Item.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MyList.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MyIterator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Glyph.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="GlyphContext.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Font.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="GlyphFactory.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
+    <ClCompile Include="test_iterator_pattern.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

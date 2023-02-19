@@ -15,21 +15,18 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="test_flyweight_pattern.cpp">
+    <ClCompile Include="test_proxy_pattern.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Glyph.h">
+    <ClInclude Include="Graphics.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GlyphContext.h">
+    <ClInclude Include="Mesh.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Font.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="GlyphFactory.h">
+    <ClInclude Include="MeshProxy.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{dcf72025-06eb-4737-927b-2caafd1bcd58}</ProjectGuid>
-    <RootNamespace>Flyweight</RootNamespace>
+    <ProjectGuid>{7ff646a9-5f73-427a-83ad-089f1235358a}</ProjectGuid>
+    <RootNamespace>observer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -139,13 +139,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="test_flyweight_pattern.cpp" />
+    <ClCompile Include="test_observer_pattern.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Font.h" />
-    <ClInclude Include="Glyph.h" />
-    <ClInclude Include="GlyphContext.h" />
-    <ClInclude Include="GlyphFactory.h" />
+    <ClInclude Include="Observer.h" />
+    <ClInclude Include="Subject.h" />
+    <ClInclude Include="TimeTicker.h" />
+    <ClInclude Include="TimeWidgetObserver.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

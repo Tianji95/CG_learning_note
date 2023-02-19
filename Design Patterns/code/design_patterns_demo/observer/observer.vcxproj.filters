@@ -15,21 +15,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="test_flyweight_pattern.cpp">
+    <ClCompile Include="test_observer_pattern.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Glyph.h">
+    <ClInclude Include="Observer.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GlyphContext.h">
+    <ClInclude Include="Subject.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Font.h">
+    <ClInclude Include="TimeTicker.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GlyphFactory.h">
+    <ClInclude Include="TimeWidgetObserver.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

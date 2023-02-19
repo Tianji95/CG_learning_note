@@ -15,21 +15,30 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="test_flyweight_pattern.cpp">
+    <ClCompile Include="test_mediator_pattern.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Widget.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Glyph.h">
+    <ClInclude Include="Widget.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GlyphContext.h">
+    <ClInclude Include="Mediator.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Font.h">
+    <ClInclude Include="Button.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GlyphFactory.h">
+    <ClInclude Include="TextArea.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ListBox.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="WidgetChangedMediator.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
